@@ -1,12 +1,9 @@
 package info.kgeorgiy.ja.tregubovich.walk;
 
-import java.io.*;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
-
 public class Walk {
 
     public static void main(String[] args) {
+        // :NOTE: copy-paste
         if (args == null || args.length < 2) {
             error("Usage: java RecursiveWalk <input> <output> [<hash-type>]");
             return;
