@@ -1,20 +1,11 @@
 package info.kgeorgiy.ja.tregubovich.walk;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.LineNumberReader;
-import java.io.Writer;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.stream.Stream;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 
 public abstract class SuperWalk {
-    // :NOTE: global vars
-    static boolean FNV_32;
-    static boolean RECURSIVE;
-
     public static void run(final String[] args, final boolean recursive) {
         if (args == null || args.length < 2) {
             error("Usage: java " + (recursive ? "RecursiveWalk" : "Walk") + " <input> <output> [<hash-type>]");
@@ -24,45 +15,8 @@ public abstract class SuperWalk {
             error("Invalid hash type: " + args[2]);
             return;
         }
-        FNV_32 = args.length < 3 || args[2].equals("fnv-32");
-        RECURSIVE = recursive;
-        walk(args[0], args[1]);
-    }
-
-    protected static Path makeInput(final String input) {
-        final Path inputPath;
-        if ((inputPath = getPath(input, "input")) == null) {
-            return null;
-        }
-
-        if (!inputPath.toFile().canRead()) {
-            error("Input file isn't readable");
-            return null;
-        }
-        return inputPath;
-    }
-
-    protected static Path makeOutput(final String output) {
-        final Path outputPath;
-        if ((outputPath = getPath(output, "output")) == null) {
-            return null;
-        }
-
-        // :NOTE: old API
-        if (!outputPath.toFile().exists()) {
-            try {
-                Files.createDirectories(outputPath.getParent());
-                Files.createFile(outputPath); // :NOTE: ??
-            } catch (final Exception e) {
-                error("Failed to create output file: " + e.getMessage());
-                return null;
-            }
-        }
-        if (!outputPath.toFile().canWrite()) {
-            error("Output file isn't writable");
-            return null;
-        }
-        return outputPath;
+        boolean fnv32 = args.length < 3 || args[2].equals("fnv-32");
+        walk(args[0], args[1], fnv32, recursive);
     }
 
     protected static Path getPath(final String path, final String fileInfo) {
@@ -74,92 +28,79 @@ public abstract class SuperWalk {
         }
     }
 
-    public static void walk(final String input, final String output) {
-        final Path inputPath;
-        if ((inputPath = makeInput(input)) == null) {
-            return;
-        }
-        // :NOTE: copy-paste
-        final Path outputPath;
-        if ((outputPath = makeOutput(output)) == null) {
+    public static void walk(final String input, final String output, final boolean fnv32, final boolean recursive)  {
+        final Path inputPath, outputPath;
+        if ((inputPath = getPath(input, "input")) == null || (outputPath = getPath(output, "output")) == null) {
             return;
         }
 
-        try (
-                // :NOTE: read docs
-                final LineNumberReader lineReader = new LineNumberReader(
-                        Files.newBufferedReader(inputPath, StandardCharsets.UTF_8)
-                );
-                // :NOTE: misleading message
-                final Writer writer = Files.newBufferedWriter(outputPath, StandardCharsets.UTF_8)
-        ) {
-            String line;
-            while ((line = lineReader.readLine()) != null) {
-                try {
+        if (outputPath.getParent() != null) {
+            try {
+                Files.createDirectories(outputPath.getParent());
+            } catch (IOException e) {
+                error("Unable to create output file: " + e.getMessage());
+            }
+        }
+
+        try (final LineNumberReader lineReader = new LineNumberReader(Files.newBufferedReader(inputPath))) {
+            try (final BufferedWriter writer = Files.newBufferedWriter(outputPath)) {
+                String line;
+                while ((line = lineReader.readLine()) != null) {
                     final Path filePath;
                     if ((filePath = getPath(line, "file")) == null) {
-                        invalidFile(line, writer, "Invalid file path");
-                    } else if (!filePath.toFile().canRead()) {
-                        invalidFile(line, writer, "File " + filePath + " isn't readable");
+                        invalidFile(line, writer, fnv32);
                     } else {
-                        proceedLine(filePath, writer);
+                        processLine(filePath, writer, fnv32, recursive);
                     }
-                } catch (final IOException e) {
-                    error("Error writing to output file: " + e.getMessage());
                 }
+            } catch (final IOException e) {
+                error("Error writing to output file: " + e.getMessage());
             }
         } catch (final IOException e) {
             error("Error reading input file: " + e.getMessage());
         }
     }
 
-    protected static void invalidFile(final String path, final Writer writer, final String msg)
+    protected static void invalidFile(final String path, final Writer writer, final boolean fnv32)
             throws IOException {
-        error(msg);
-        write(path, writer, 0L);
+        error("Invalid file");
+        write(path, writer, 0L, fnv32);
 
     }
 
-    protected static void proceedLine(final Path path, final Writer writer)
+
+    protected static void processLine(final Path path, final Writer writer, final boolean fnv32, final boolean recursive)
             throws IOException {
-        if (path.toFile().isFile()) {
-            final long hash = hashOfFile(path);
-            write(path.toFile().toString(), writer, hash);
-        } else if (RECURSIVE && path.toFile().isDirectory()) {
-            // :NOTE: handmade walk
-            try (final Stream<Path> fileList = Files.list(path)) {
-                for (final Path child : fileList.toList()) {
-                    proceedLine(child, writer);
-                }
-            } catch (final IOException e) {
-                invalidFile(path.toString(), writer, "Error writing to output file: " + e.getMessage());
-            }
-        } else {
+        if (!Files.exists(path) || !recursive && !Files.isRegularFile(path)) {
             error(path.toFile() + " is not a file");
-            write(path.toFile().toString(), writer, 0L);
+            write(path.toString(), writer, 0L, fnv32);
+        } else {
+            Files.walkFileTree(path, new SimpleFileVisitor<>() {
+                @Override
+                public FileVisitResult visitFile(Path path, BasicFileAttributes attributes) throws IOException {
+                    final long hash = hashOfFile(path, fnv32);
+                    write(path.toString(), writer, hash, fnv32);
+                    return FileVisitResult.CONTINUE;
+                }
+            });
         }
     }
 
-    private static void write(final String path, final Writer writer, final long hash) throws IOException {
-        writer.write((FNV_32
+    private static void write(final String path, final Writer writer, final long hash, final boolean fnv32) throws IOException {
+        writer.write((fnv32
                 ? String.format("%08x", (int) hash)
                 : String.format("%016x", hash)) +
                 " " +
                 path + System.lineSeparator());
     }
 
-    protected static long hashOfFile(final Path path) {
+    protected static long hashOfFile(final Path path, final boolean fnv32) {
         final char[] buffer = new char[2048];
-        try (
-                final BufferedReader reader = Files.newBufferedReader(
-                        path,
-                        StandardCharsets.ISO_8859_1
-                )
-        ) {
+        try (final BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.ISO_8859_1)) {
             int read;
             long hval;
             final long prime;
-            if (FNV_32) {
+            if (fnv32) {
                 hval = 0x811c9dc5L;
                 prime = 0x01000193;
             } else {
@@ -169,7 +110,7 @@ public abstract class SuperWalk {
             while ((read = reader.read(buffer)) != -1) {
                 hval = fnv(hval, prime, buffer, read);
             }
-            return FNV_32 ? (int) hval : hval;
+            return fnv32 ? (int) hval : hval;
         } catch (final IOException e) {
             error("Error hashing file: " + e.getMessage());
             return 0;
