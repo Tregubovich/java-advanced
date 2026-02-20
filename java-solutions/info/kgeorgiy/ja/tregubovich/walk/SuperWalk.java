@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.util.stream.Stream;
 
 public abstract class SuperWalk {
+    // :NOTE: global vars
     static boolean FNV_32;
     static boolean RECURSIVE;
 
@@ -47,10 +48,11 @@ public abstract class SuperWalk {
             return null;
         }
 
+        // :NOTE: old API
         if (!outputPath.toFile().exists()) {
             try {
                 Files.createDirectories(outputPath.getParent());
-                Files.createFile(outputPath);
+                Files.createFile(outputPath); // :NOTE: ??
             } catch (final Exception e) {
                 error("Failed to create output file: " + e.getMessage());
                 return null;
@@ -72,45 +74,36 @@ public abstract class SuperWalk {
         }
     }
 
-    public static void walk(
-            final String input,
-            final String output
-    ) {
+    public static void walk(final String input, final String output) {
         final Path inputPath;
         if ((inputPath = makeInput(input)) == null) {
             return;
         }
+        // :NOTE: copy-paste
         final Path outputPath;
         if ((outputPath = makeOutput(output)) == null) {
             return;
         }
 
         try (
+                // :NOTE: read docs
                 final LineNumberReader lineReader = new LineNumberReader(
                         Files.newBufferedReader(inputPath, StandardCharsets.UTF_8)
                 );
-                final Writer writer = Files.newBufferedWriter(
-                        outputPath,
-                        StandardCharsets.UTF_8
-                )
+                // :NOTE: misleading message
+                final Writer writer = Files.newBufferedWriter(outputPath, StandardCharsets.UTF_8)
         ) {
-            String read;
-            while ((read = lineReader.readLine()) != null) {
+            String line;
+            while ((line = lineReader.readLine()) != null) {
                 try {
                     final Path filePath;
-                    if ((filePath = getPath(read, "file")) == null) {
-                        invalidFile(read, writer, "Invalid file path");
-                        continue;
+                    if ((filePath = getPath(line, "file")) == null) {
+                        invalidFile(line, writer, "Invalid file path");
+                    } else if (!filePath.toFile().canRead()) {
+                        invalidFile(line, writer, "File " + filePath + " isn't readable");
+                    } else {
+                        proceedLine(filePath, writer);
                     }
-                    if (!filePath.toFile().canRead()) {
-                        invalidFile(
-                                filePath.toString(),
-                                writer,
-                                "File " + filePath + " isn't readable"
-                        );
-                        continue;
-                    }
-                    proceedLine(filePath, writer);
                 } catch (final IOException e) {
                     error("Error writing to output file: " + e.getMessage());
                 }
@@ -133,6 +126,7 @@ public abstract class SuperWalk {
             final long hash = hashOfFile(path);
             write(path.toFile().toString(), writer, hash);
         } else if (RECURSIVE && path.toFile().isDirectory()) {
+            // :NOTE: handmade walk
             try (final Stream<Path> fileList = Files.list(path)) {
                 for (final Path child : fileList.toList()) {
                     proceedLine(child, writer);
