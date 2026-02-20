@@ -3,6 +3,7 @@ package info.kgeorgiy.ja.tregubovich.arrayset;
 import java.util.*;
 
 public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
+
     private final Comparator<? super E> comparator;
     private final List<E> elements;
 
@@ -15,11 +16,9 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
     }
 
     @SuppressWarnings("unchecked")
-    public ArraySet(
-            Collection<E> collection,
-            Comparator<? super E> cmp
-    ) {
-        this.comparator = cmp != null
+    public ArraySet(Collection<E> collection, Comparator<? super E> cmp) {
+        this.comparator =
+            cmp != null
                 ? cmp
                 : (Comparator<? super E>) Comparator.naturalOrder();
         List<E> listOfElements = new ArrayList<>(collection);
@@ -27,8 +26,8 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
         elements = new ArrayList<>();
         for (E e : listOfElements) {
             if (
-                    elements.isEmpty() ||
-                            comparator.compare(e, elements.getLast()) != 0
+                elements.isEmpty() ||
+                comparator.compare(e, elements.getLast()) != 0
             ) {
                 elements.addLast(e);
             }
@@ -82,6 +81,7 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
     }
 
     private abstract class ArraySetIterator implements Iterator<E> {
+
         private int index;
 
         public ArraySetIterator(int index) {
@@ -108,12 +108,14 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
     }
 
     private class ForwardIterator extends ArraySetIterator {
+
         public ForwardIterator(int index) {
             super(index);
         }
     }
 
     private class BackwardIterator extends ArraySetIterator {
+
         public BackwardIterator(int index) {
             super(index);
         }
@@ -146,15 +148,18 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
 
     @Override
     public NavigableSet<E> subSet(
-            E fromElement,
-            boolean fromInclusive,
-            E toElement,
-            boolean toInclusive
+        E fromElement,
+        boolean fromInclusive,
+        E toElement,
+        boolean toInclusive
     ) {
         if (comparator.compare(fromElement, toElement) > 0) {
             throw new IllegalArgumentException(fromElement + " > " + toElement);
         }
-        return headSet(toElement, toInclusive).tailSet(fromElement, fromInclusive);
+        return headSet(toElement, toInclusive).tailSet(
+            fromElement,
+            fromInclusive
+        );
     }
 
     @Override
@@ -163,7 +168,11 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
         if (index < 0) {
             index = -index - 1;
         }
-        if (inclusive && index < size() && comparator.compare(elements.get(index), toElement) == 0) {
+        if (
+            inclusive &&
+            index < size() &&
+            comparator.compare(elements.get(index), toElement) == 0
+        ) {
             index++;
         }
         return new ArraySet<>(elements.subList(0, index), comparator);
@@ -175,7 +184,11 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E> {
         if (index < 0) {
             index = -index - 1;
         }
-        if (!inclusive && index < size() && comparator.compare(elements.get(index), fromElement) == 0) {
+        if (
+            !inclusive &&
+            index < size() &&
+            comparator.compare(elements.get(index), fromElement) == 0
+        ) {
             index++;
         }
         return new ArraySet<>(elements.subList(index, size()), comparator);
