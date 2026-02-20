@@ -16,7 +16,7 @@ public abstract class SuperWalk {
 
     public static void run(final String[] args, final boolean recursive) {
         if (args == null || args.length < 2) {
-            error("Usage: java <input> <output> [<hash-type>]");
+            error("Usage: java " + (recursive ? "RecursiveWalk" : "Walk") + " <input> <output> [<hash-type>]");
             return;
         }
         if (args.length == 3 && !args[2].equals("fnv-32") && !args[2].equals("fnv-64")) {
