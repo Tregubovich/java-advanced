@@ -18,6 +18,9 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E>, List
     public ArraySet(Collection<E> collection, Comparator<? super E> cmp) {
         Set<E> distinct = new TreeSet<>(cmp);
         distinct.addAll(collection);
+
+        // :NOTE:
+        // new Collections.unmodifiableList(
         this.elements = new ArrayList<>(distinct);
         this.comparator = cmp;
     }
@@ -128,6 +131,7 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E>, List
         }
     }
 
+    // :NOTE: ????????
     private class ForwardIterator extends ArraySetIterator {
         public ForwardIterator(int index) {
             super(index);
@@ -328,6 +332,14 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E>, List
         return elements.size();
     }
 
+    // :NOTE:
+//    private final Comparator<Object> DEFAULT_ORDER = new Comparator<Object>() {
+//        @Override
+//        public int compare(Object o1, Object o2) {
+//            return Collections.reverseOrder().reversed().compare(o1, o2);
+//        }
+//    };
+//
     @SuppressWarnings("unchecked")
     private int compare(E e1, E e2) {
         if (comparator != null) {
