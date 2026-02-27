@@ -18,10 +18,7 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E>, List
     public ArraySet(Collection<E> collection, Comparator<? super E> cmp) {
         Set<E> distinct = new TreeSet<>(cmp);
         distinct.addAll(collection);
-
-        // :NOTE:
-        // new Collections.unmodifiableList(
-        this.elements = new ArrayList<>(distinct);
+        this.elements = Collections.unmodifiableList(new ArrayList<>(distinct));
         this.comparator = cmp;
     }
 
@@ -78,85 +75,9 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E>, List
         return null;
     }
 
-    private class ArraySetIterator implements ListIterator<E> {
-        private int index;
-
-        public ArraySetIterator(int index) {
-            this.index = index;
-        }
-
-        @Override
-        public boolean hasNext() {
-            return index < size();
-        }
-
-        @Override
-        public E next() {
-            return elements.get(index++);
-        }
-
-        @Override
-        public boolean hasPrevious() {
-            return index > 0;
-        }
-
-        @Override
-        public E previous() {
-            return elements.get(--index);
-        }
-
-        @Override
-        public int nextIndex() {
-            return index + 1;
-        }
-
-        @Override
-        public int previousIndex() {
-            return index - 1;
-        }
-
-        @Override
-        public void remove() {
-            error();
-        }
-
-        @Override
-        public void set(E e) {
-            error();
-        }
-
-        @Override
-        public void add(E e) {
-            error();
-        }
-    }
-
-    // :NOTE: ????????
-    private class ForwardIterator extends ArraySetIterator {
-        public ForwardIterator(int index) {
-            super(index);
-        }
-    }
-
-    private class BackwardIterator extends ArraySetIterator {
-        public BackwardIterator(int index) {
-            super(index);
-        }
-
-        @Override
-        public boolean hasNext() {
-            return hasPrevious();
-        }
-
-        @Override
-        public E next() {
-            return previous();
-        }
-    }
-
     @Override
     public Iterator<E> iterator() {
-        return new ForwardIterator(0);
+        return elements.listIterator();
     }
 
     @Override
@@ -200,12 +121,12 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E>, List
 
     @Override
     public ListIterator<E> listIterator() {
-        return new ArraySetIterator(0);
+        return elements.listIterator();
     }
 
     @Override
     public ListIterator<E> listIterator(int index) {
-        return new ArraySetIterator(index);
+        return elements.listIterator(index);
     }
 
     @Override
@@ -215,7 +136,7 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E>, List
 
     @Override
     public Iterator<E> descendingIterator() {
-        return new BackwardIterator(size());
+        return elements.reversed().listIterator();
     }
 
     @Override
