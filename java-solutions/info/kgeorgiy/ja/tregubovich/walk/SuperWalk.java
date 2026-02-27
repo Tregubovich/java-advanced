@@ -15,7 +15,7 @@ public abstract class SuperWalk {
             error("Invalid hash type: " + args[2]);
             return;
         }
-        boolean fnv32 = args.length < 3 || args[2].equals("fnv-32");
+        final boolean fnv32 = args.length < 3 || args[2].equals("fnv-32");
         walk(args[0], args[1], fnv32, recursive);
     }
 
@@ -37,7 +37,7 @@ public abstract class SuperWalk {
         if (outputPath.getParent() != null) {
             try {
                 Files.createDirectories(outputPath.getParent());
-            } catch (IOException e) {
+            } catch (final IOException e) {
                 error("Unable to create output file: " + e.getMessage());
             }
         }
@@ -77,9 +77,15 @@ public abstract class SuperWalk {
         } else {
             Files.walkFileTree(path, new SimpleFileVisitor<>() {
                 @Override
-                public FileVisitResult visitFile(Path path, BasicFileAttributes attributes) throws IOException {
+                public FileVisitResult visitFile(final Path path, final BasicFileAttributes attributes) throws IOException {
                     final long hash = hashOfFile(path, fnv32);
                     write(path.toString(), writer, hash, fnv32);
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult visitFileFailed(final Path file, final IOException exc) throws IOException {
+                    invalidFile(file.toString(), writer, fnv32);
                     return FileVisitResult.CONTINUE;
                 }
             });
