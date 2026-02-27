@@ -21,8 +21,11 @@ public abstract class SuperWalk {
 
     protected static Path getPath(final String path, final String fileInfo) {
         try {
+            // :NOTE: FileSystems.getDefault()
             return FileSystems.getDefault().getPath(path);
+            // :NOTE: catch (final Exception e)
         } catch (final Exception e) {
+            // :NOTE:
             error("Invalid " + fileInfo + " path: " + e.getMessage());
             return null;
         }
