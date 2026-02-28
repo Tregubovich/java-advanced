@@ -25,7 +25,6 @@ public abstract class SuperWalk {
             return FileSystems.getDefault().getPath(path);
             // :NOTE: catch (final Exception e)
         } catch (final Exception e) {
-            // :NOTE: gg
             error("Invalid " + fileInfo + " path: " + e.getMessage());
             return null;
         }
