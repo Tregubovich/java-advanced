@@ -1,6 +1,9 @@
 package info.kgeorgiy.ja.tregubovich.student;
 
-import info.kgeorgiy.java.advanced.student.*;
+import info.kgeorgiy.java.advanced.student.AdvancedQuery;
+import info.kgeorgiy.java.advanced.student.Group;
+import info.kgeorgiy.java.advanced.student.GroupName;
+import info.kgeorgiy.java.advanced.student.Student;
 
 import java.util.*;
 import java.util.function.BinaryOperator;
