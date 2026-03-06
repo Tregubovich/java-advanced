@@ -3,7 +3,6 @@ package info.kgeorgiy.ja.tregubovich.arrayset;
 import java.util.*;
 
 public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E>, List<E> {
-
     private final Comparator<? super E> comparator;
     private final List<E> elements;
 
@@ -257,7 +256,7 @@ public class ArraySet<E> extends AbstractSet<E> implements NavigableSet<E>, List
         if (comparator != null) {
             return comparator.compare(e1, e2);
         } else {
-            return Collections.reverseOrder().reversed().compare(e1, e2);
+            return Collections.reverseOrder().reversed().compare(e1, e2); // :NOTE: private static final
         }
     }
 
