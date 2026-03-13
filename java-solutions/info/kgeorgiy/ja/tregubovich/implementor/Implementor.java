@@ -23,6 +23,7 @@ public class Implementor implements Impler {
                 || aClass.isArray()
                 || Modifier.isFinal(aClass.getModifiers())
                 || Modifier.isPrivate(aClass.getModifiers())
+                || aClass.isSealed()
                 || aClass.equals(Enum.class)
                 || aClass.equals(Record.class)) {
             throw new ImplerException(aClass.getName() + " can't be implemented or extended");
@@ -58,15 +59,18 @@ public class Implementor implements Impler {
         for (Constructor<?> c : cons) {
             if (Modifier.isPrivate(c.getModifiers())) {
                 continue;
-            } else {
-                hasCons = true;
             }
-            write(writer, "public " +
-                    aClass.getSimpleName() + "Impl("
-                    + getArgs(c.getParameterTypes()) + ")"
-                    + getExceptionTypes(c.getExceptionTypes()) + " {");
-            write(writer, "super(" + getArgs(c.getParameterTypes(), false) + ");");
+            try {
+                write(writer, "public " +
+                        aClass.getSimpleName() + "Impl("
+                        + getArgs(aClass, c.getParameterTypes()) + ")"
+                        + getExceptionTypes(c.getExceptionTypes()) + " {");
+            } catch (ImplerException e) {
+                continue;
+            }
+            write(writer, "super(" + getArgs(aClass, c.getParameterTypes(), false) + ");");
             write(writer, "}");
+            hasCons = true;
         }
         if (!hasCons) {
             throw new ImplerException(aClass.getSimpleName() + "hasn't accessible constructor");
@@ -81,7 +85,7 @@ public class Implementor implements Impler {
             write(writer, "@Override");
             write(writer, "public " +
                     getReturnType(m.getReturnType()) + " " + m.getName()
-                    + "(" + getArgs(m.getParameterTypes()) + ")"
+                    + "(" + getArgs(aClass, m.getParameterTypes()) + ")"
                     + getExceptionTypes(m.getExceptionTypes()) + " {");
             write(writer, "return " + getZeroType(m.getReturnType()) + ";");
             write(writer, "}");
@@ -138,11 +142,11 @@ public class Implementor implements Impler {
         }
     }
 
-    private static String getArgs(Class<?>[] parameterTypes) throws ImplerException {
-        return getArgs(parameterTypes, true);
+    private static String getArgs(Class<?> aClass, Class<?>[] parameterTypes) throws ImplerException {
+        return getArgs(aClass, parameterTypes, true);
     }
 
-    private static String getArgs(Class<?>[] parameterTypes, boolean withTypes) throws ImplerException {
+    private static String getArgs(Class<?> aClass, Class<?>[] parameterTypes, boolean withTypes) throws ImplerException {
         for (Class<?> p : parameterTypes) {
             if (Modifier.isPrivate(p.getModifiers())) {
                 throw new ImplerException("Private arg in method: " + p.getSimpleName());
@@ -155,6 +159,5 @@ public class Implementor implements Impler {
 
     private static void write(Writer writer, String s) throws IOException {
         writer.write(s + System.lineSeparator());
-        System.err.println(s);
     }
 }
