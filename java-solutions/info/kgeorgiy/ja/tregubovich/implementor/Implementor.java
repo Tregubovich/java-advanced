@@ -3,6 +3,7 @@ package info.kgeorgiy.ja.tregubovich.implementor;
 import info.kgeorgiy.java.advanced.implementor.Impler;
 import info.kgeorgiy.java.advanced.implementor.ImplerException;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.Writer;
 import java.lang.reflect.Constructor;
@@ -31,7 +32,7 @@ public class Implementor implements Impler {
         Path classPath = path.resolve(Arrays.stream(aClass.getPackageName().split("\\."))
                 .collect(Collectors.joining(
                         FileSystems.getDefault().getSeparator()
-                )) + FileSystems.getDefault().getSeparator() + aClass.getSimpleName() + "Impl.java");
+                )) + FileSystems.getDefault().getSeparator() + aClass.getSimpleName() + "Impl.java"); // :NOTE: File.separatorChar
         try {
             Files.createDirectories(classPath.getParent());
         } catch (IOException e) {
