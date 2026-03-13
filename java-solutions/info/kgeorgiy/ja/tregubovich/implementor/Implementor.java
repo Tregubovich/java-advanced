@@ -32,7 +32,8 @@ public class Implementor implements Impler {
         Path classPath = path.resolve(Arrays.stream(aClass.getPackageName().split("\\."))
                 .collect(Collectors.joining(
                         FileSystems.getDefault().getSeparator()
-                )) + FileSystems.getDefault().getSeparator() + aClass.getSimpleName() + "Impl.java"); // :NOTE: File.separatorChar
+                )) + FileSystems.getDefault().getSeparator() + aClass.getSimpleName() + "Impl.java");
+        // not working on linux with File.separatorChar
         try {
             Files.createDirectories(classPath.getParent());
         } catch (IOException e) {
@@ -46,9 +47,9 @@ public class Implementor implements Impler {
     }
 
     private static void implClass(Writer writer, Class<?> aClass) throws IOException, ImplerException {
-        write(writer, "package " + aClass.getPackageName() + ";");
-        write(writer, "public class " + aClass.getSimpleName() + "Impl " + (aClass.isInterface() ? "implements " : "extends ") +
-                (aClass.getDeclaringClass() == null ? "" : aClass.getDeclaringClass().getSimpleName() + ".") + aClass.getSimpleName() + " {");
+        write(writer, "package " + aClass.getPackageName() + ";",
+                "public class " + aClass.getSimpleName() + "Impl " + (aClass.isInterface() ? "implements " : "extends ") +
+                        (aClass.getDeclaringClass() == null ? "" : aClass.getDeclaringClass().getSimpleName() + ".") + aClass.getSimpleName() + " {");
         implCons(writer, aClass);
         implMethods(writer, aClass);
         write(writer, "}");
@@ -63,14 +64,14 @@ public class Implementor implements Impler {
             }
             try {
                 write(writer, "public " +
-                        aClass.getSimpleName() + "Impl("
-                        + getArgs(aClass, c.getParameterTypes()) + ")"
-                        + getExceptionTypes(c.getExceptionTypes()) + " {");
+                                aClass.getSimpleName() + "Impl("
+                                + getArgs(c.getParameterTypes()) + ")"
+                                + getExceptionTypes(c.getExceptionTypes()) + " {",
+                        "super(" + getArgs(c.getParameterTypes(), false) + ");",
+                        "}");
             } catch (ImplerException e) {
                 continue;
             }
-            write(writer, "super(" + getArgs(aClass, c.getParameterTypes(), false) + ");");
-            write(writer, "}");
             hasCons = true;
         }
         if (!hasCons) {
@@ -83,13 +84,11 @@ public class Implementor implements Impler {
             if (m == null) {
                 continue;
             }
-            write(writer, "@Override");
             write(writer, "public " +
-                    getReturnType(m.getReturnType()) + " " + m.getName()
-                    + "(" + getArgs(aClass, m.getParameterTypes()) + ")"
-                    + getExceptionTypes(m.getExceptionTypes()) + " {");
-            write(writer, "return " + getZeroType(m.getReturnType()) + ";");
-            write(writer, "}");
+                            getReturnType(m.getReturnType()) + " " + m.getName()
+                            + "(" + getArgs(m.getParameterTypes()) + ")"
+                            + getExceptionTypes(m.getExceptionTypes()) + " {",
+                    "return " + getZeroType(m.getReturnType()) + ";", "}");
         }
     }
 
@@ -143,11 +142,11 @@ public class Implementor implements Impler {
         }
     }
 
-    private static String getArgs(Class<?> aClass, Class<?>[] parameterTypes) throws ImplerException {
-        return getArgs(aClass, parameterTypes, true);
+    private static String getArgs(Class<?>[] parameterTypes) throws ImplerException {
+        return getArgs(parameterTypes, true);
     }
 
-    private static String getArgs(Class<?> aClass, Class<?>[] parameterTypes, boolean withTypes) throws ImplerException {
+    private static String getArgs(Class<?>[] parameterTypes, boolean withTypes) throws ImplerException {
         for (Class<?> p : parameterTypes) {
             if (Modifier.isPrivate(p.getModifiers())) {
                 throw new ImplerException("Private arg in method: " + p.getSimpleName());
@@ -158,7 +157,7 @@ public class Implementor implements Impler {
                 .collect(Collectors.joining(", "));
     }
 
-    private static void write(Writer writer, String s) throws IOException {
-        writer.write(s + System.lineSeparator());
+    private static void write(Writer writer, String... s) throws IOException {
+        writer.write(String.join(System.lineSeparator(), s));
     }
 }
