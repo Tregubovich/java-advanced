@@ -7,7 +7,9 @@ import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collector;
+import java.util.stream.Collectors;
 import java.util.stream.Gatherer;
+import java.util.stream.Gatherers;
 
 public class Streams implements AdvancedStreams {
     private static class TreeSpliterator<N, T> implements Spliterator<T> {
@@ -155,6 +157,7 @@ public class Streams implements AdvancedStreams {
 
     @Override
     public <T> Collector<T, ?, Optional<T>> first() {
+        // :NOTE: Collectors.reducing()
         return Collector.of(
                 State<T>::new,
                 (box, t) -> {
@@ -169,6 +172,7 @@ public class Streams implements AdvancedStreams {
 
     @Override
     public <T> Collector<T, ?, Optional<T>> last() {
+        // :NOTE: Collectors.reducing()
         return Collector.of(
                 State<T>::new,
                 (box, t) -> box.value = t,
@@ -255,6 +259,7 @@ public class Streams implements AdvancedStreams {
 
     @Override
     public Gatherer<CharSequence, ?, CharSequence> stringSuffixes() {
+        // :NOTE: общее с префикасми
         return Gatherer.of(
                 Gatherer.Integrator.of((_, input, output) -> {
                     for (int i = input.length() - 1; i >= 0; i--) {
@@ -308,6 +313,7 @@ public class Streams implements AdvancedStreams {
 
     @Override
     public <T> Collector<T, ?, List<T>> tail(int k) {
+        // :NOTE: общий код с head
         return Collector.of(
                 LinkedList::new,
                 (curTail, el) -> {
@@ -348,6 +354,7 @@ public class Streams implements AdvancedStreams {
 
     @Override
     public <T> Gatherer<T, ?, T> ithOfN(int i, int n) {
+        // :NOTE: общее с kth
         return Gatherer.of(
                 () -> new int[1],
                 (state, element, downstream) -> {
@@ -370,6 +377,7 @@ public class Streams implements AdvancedStreams {
 
     @Override
     public <T, K> Gatherer<T, ?, T> distinctPrefixBy(Function<? super T, K> function) {
+// :NOTE:       Gatherers.scan()
         return Gatherer.of(
                 HashSet<K>::new,
                 (state, input, output) -> {
@@ -395,6 +403,7 @@ public class Streams implements AdvancedStreams {
             final List<T> res = new ArrayList<>();
             final Set<Object> seen = new HashSet<>();
         }
+        // :NOTE: Collectors.
         return Collector.of(
                 State::new,
                 (state, t) -> {
@@ -422,6 +431,8 @@ public class Streams implements AdvancedStreams {
             T min;
             final List<T> minimums = new ArrayList<>();
         }
+        // :NOTE:
+//        Collectors.
         return Collector.of(
                 State::new,
                 (state, el) -> {
