@@ -297,7 +297,7 @@ public class Implementor implements Impler, JarImpler {
      */
     private static String getExceptionTypes(Class<?>[] exceptionTypes) {
         return exceptionTypes.length == 0 ? " "
-                : " throws " + Arrays.stream(exceptionTypes).map(Class::getName).collect(Collectors.joining(", "));
+                : " throws " + Arrays.stream(exceptionTypes).map(Class::getCanonicalName).collect(Collectors.joining(", "));
     }
 
     /**
@@ -327,7 +327,7 @@ public class Implementor implements Impler, JarImpler {
         if (returnType.isArray()) {
             return getReturnType(returnType.componentType()) + "[]";
         }
-        return returnType.getName();
+        return returnType.getCanonicalName();
     }
 
     /**
@@ -368,6 +368,9 @@ public class Implementor implements Impler, JarImpler {
      * @throws IOException if write fails
      */
     private static void write(OutputStream writer, String... s) throws IOException {
-        writer.write(String.join(System.lineSeparator(), s).getBytes());
+        writer.write(
+                String.join(System.lineSeparator(), s).chars()
+                        .mapToObj(c -> c < 128 ? String.valueOf((char) c) : String.format("\\u%04x", c))
+                        .collect(Collectors.joining()).getBytes());
     }
 }
