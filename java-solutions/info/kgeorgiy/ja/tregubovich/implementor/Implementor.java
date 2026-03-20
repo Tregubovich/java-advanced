@@ -2,22 +2,55 @@ package info.kgeorgiy.ja.tregubovich.implementor;
 
 import info.kgeorgiy.java.advanced.implementor.Impler;
 import info.kgeorgiy.java.advanced.implementor.ImplerException;
+import info.kgeorgiy.java.advanced.implementor.tools.JarImpler;
 
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
 import java.io.File;
 import java.io.IOException;
-import java.io.Writer;
+import java.io.OutputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.nio.file.FileSystems;
+import java.net.URISyntaxException;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-public class Implementor implements Impler {
+public class Implementor implements Impler, JarImpler {
+    public static void main(String[] args) {
+        if (args.length != 1 && args.length != 3) {
+            System.out.println("Usage: java Implementor <aClass>");
+            System.out.println("or");
+            System.out.println("Usage: java Implementor -jar <aClass> <file>.jar");
+            return;
+        }
+        boolean isJar = (args[0].equals("-jar"));
+        Class<?> aClass;
+        try {
+            aClass = ClassLoader.getSystemClassLoader().loadClass(args[!isJar ? 0 : 1]);
+        } catch (ClassNotFoundException e) {
+            System.err.println("Can't load class: " + e.getMessage());
+            return;
+        }
+        try {
+            if (isJar) {
+                new Implementor().implement(aClass, Paths.get(""));
+            } else {
+                new Implementor().implementJar(aClass, Paths.get(args[2]));
+            }
+        } catch (ImplerException e) {
+            System.err.println("Impossible to implement: " + e.getMessage());
+        }
+    }
+
     @Override
     public void implement(Class<?> aClass, Path path) throws ImplerException {
         if (aClass.isPrimitive()
@@ -29,24 +62,86 @@ public class Implementor implements Impler {
                 || aClass.equals(Record.class)) {
             throw new ImplerException(aClass.getName() + " can't be implemented or extended");
         }
-        Path classPath = path.resolve(Arrays.stream(aClass.getPackageName().split("\\."))
-                .collect(Collectors.joining(
-                        FileSystems.getDefault().getSeparator()
-                )) + FileSystems.getDefault().getSeparator() + aClass.getSimpleName() + "Impl.java");
-        // not working on linux with File.separatorChar
-        try {
-            Files.createDirectories(classPath.getParent());
-        } catch (IOException e) {
-            throw new ImplerException("Can't create parent directory: " + e.getMessage());
-        }
-        try (Writer writer = Files.newBufferedWriter(classPath)) {
+        Path classPath = getPath(aClass, path);
+        try (OutputStream writer = Files.newOutputStream(classPath)) {
             implClass(writer, aClass);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private static void implClass(Writer writer, Class<?> aClass) throws IOException, ImplerException {
+    @Override
+    public void implementJar(Class<?> aClass, Path path) throws ImplerException {
+        Path tempDir;
+        try {
+            tempDir = Files.createTempDirectory("tmp");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        implement(aClass, tempDir);
+        compile(List.of(getPath(aClass, tempDir)), List.of(aClass), Charset.defaultCharset());
+        try (JarOutputStream jar = new JarOutputStream(Files.newOutputStream(path))) {
+            String entryName = aClass.getPackageName().replace('.', '/') + "/"
+                    + aClass.getSimpleName() + "Impl.class";
+            jar.putNextEntry(new JarEntry(entryName));
+            Files.copy(getClassFilePath(aClass, tempDir), jar);
+            jar.closeEntry();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static void compile(
+            final List<Path> files,
+            final List<Class<?>> dependencies,
+            final Charset charset
+    ) throws ImplerException {
+        final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        if (compiler == null) {
+            throw new ImplerException("Could not find java compiler, include tools.jar to classpath");
+        }
+        final String classpath = getClassPath(dependencies).stream()
+                .map(Path::toString)
+                .collect(Collectors.joining(File.pathSeparator));
+        final String[] args = Stream.concat(
+                Stream.of("-cp", classpath, "-encoding", charset.name()),
+                files.stream().map(Path::toString)
+        ).toArray(String[]::new);
+        compiler.run(null, null, null, args);
+    }
+
+    private static List<Path> getClassPath(final List<Class<?>> dependencies) {
+        return dependencies.stream()
+                .map(dependency -> {
+                    try {
+                        return Path.of(dependency.getProtectionDomain().getCodeSource().getLocation().toURI());
+                    } catch (final URISyntaxException e) {
+                        throw new AssertionError(e);
+                    }
+                })
+                .toList();
+    }
+
+    private static Path getPath(Class<?> aClass, Path path) throws ImplerException {
+        Path classPath = path.resolve(
+                String.join(File.separator, aClass.getPackageName().split("\\."))
+                        + File.separator + aClass.getSimpleName()
+                        + "Impl" + ".java");
+        try {
+            Files.createDirectories(classPath.getParent());
+        } catch (IOException e) {
+            throw new ImplerException("Can't create parent directory: " + e.getMessage());
+        }
+        return classPath;
+    }
+
+    private Path getClassFilePath(Class<?> aClass, Path path) {
+        return path.resolve(
+                aClass.getPackageName().replace('.', File.separatorChar)
+        ).resolve(aClass.getSimpleName() + "Impl.class");
+    }
+
+    private static void implClass(OutputStream writer, Class<?> aClass) throws IOException, ImplerException {
         write(writer, "package " + aClass.getPackageName() + ";",
                 "public class " + aClass.getSimpleName() + "Impl " + (aClass.isInterface() ? "implements " : "extends ") +
                         (aClass.getDeclaringClass() == null ? "" : aClass.getDeclaringClass().getSimpleName() + ".") + aClass.getSimpleName() + " {");
@@ -55,7 +150,7 @@ public class Implementor implements Impler {
         write(writer, "}");
     }
 
-    private static void implCons(Writer writer, Class<?> aClass) throws IOException, ImplerException {
+    private static void implCons(OutputStream writer, Class<?> aClass) throws IOException, ImplerException {
         Set<Constructor<?>> cons = Stream.concat(Arrays.stream(aClass.getConstructors()), Arrays.stream(aClass.getDeclaredConstructors())).collect(Collectors.toSet());
         boolean hasCons = aClass.isInterface();
         for (Constructor<?> c : cons) {
@@ -79,7 +174,7 @@ public class Implementor implements Impler {
         }
     }
 
-    private static void implMethods(Writer writer, Class<?> aClass) throws IOException, ImplerException {
+    private static void implMethods(OutputStream writer, Class<?> aClass) throws IOException, ImplerException {
         for (Method m : getAllMethods(aClass)) {
             if (m == null) {
                 continue;
@@ -157,7 +252,7 @@ public class Implementor implements Impler {
                 .collect(Collectors.joining(", "));
     }
 
-    private static void write(Writer writer, String... s) throws IOException {
-        writer.write(String.join(System.lineSeparator(), s));
+    private static void write(OutputStream writer, String... s) throws IOException {
+        writer.write(String.join(System.lineSeparator(), s).getBytes());
     }
 }
