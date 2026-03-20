@@ -72,6 +72,11 @@ public class Implementor implements Impler, JarImpler {
      * @param path   output directory
      * @throws ImplerException if implementation is impossible
      */
+
+    // :NOTE:.
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void implement(Class<?> aClass, Path path) throws ImplerException {
         if (aClass.isPrimitive()

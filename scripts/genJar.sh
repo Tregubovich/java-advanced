@@ -4,3 +4,6 @@ javac \
   ../java-solutions/info/kgeorgiy/ja/tregubovich/implementor/Implementor.java
 jar cfm Implementor.jar MANIFEST.MF -C out .
 rm -rf out
+
+# NOTE: переменные
+# NOTE: encoding

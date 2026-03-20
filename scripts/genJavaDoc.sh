@@ -5,4 +5,4 @@ javadoc \
   -d "../javadoc" \
   -private \
   --class-path "${class_path}:${class_path}.tools" \
-  "../../java-advanced/java-solutions/info/kgeorgiy/ja/tregubovich/implementor/Implementor.java"
+  "../java-solutions/info/kgeorgiy/ja/tregubovich/implementor/Implementor.java"
