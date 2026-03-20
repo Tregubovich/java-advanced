@@ -4,12 +4,10 @@ import info.kgeorgiy.java.advanced.streams.AdvancedStreams;
 import info.kgeorgiy.java.advanced.streams.Trees;
 
 import java.util.*;
-import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.*;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Gatherer;
-import java.util.stream.Gatherers;
 
 public class Streams implements AdvancedStreams {
     private static class TreeSpliterator<N, T> implements Spliterator<T> {
@@ -151,34 +149,14 @@ public class Streams implements AdvancedStreams {
         return new NestedSpliterator<>(naryTreeSpliterator(tree));
     }
 
-    static class State<T> {
-        T value;
-    }
-
     @Override
     public <T> Collector<T, ?, Optional<T>> first() {
-        // :NOTE: Collectors.reducing()
-        return Collector.of(
-                State<T>::new,
-                (box, t) -> {
-                    if (box.value == null) {
-                        box.value = t;
-                    }
-                },
-                (l, _) -> l,
-                box -> Optional.ofNullable(box.value)
-        );
+        return Collectors.reducing((l, _) -> l);
     }
 
     @Override
     public <T> Collector<T, ?, Optional<T>> last() {
-        // :NOTE: Collectors.reducing()
-        return Collector.of(
-                State<T>::new,
-                (box, t) -> box.value = t,
-                (_, r) -> r,
-                box -> Optional.ofNullable(box.value)
-        );
+        return Collectors.reducing((_, r) -> r);
     }
 
     @Override
@@ -245,49 +223,24 @@ public class Streams implements AdvancedStreams {
 
     @Override
     public Gatherer<CharSequence, ?, CharSequence> stringPrefixes() {
-        return Gatherer.of(
-                Gatherer.Integrator.of((_, input, output) -> {
-                    for (int i = 1; i <= input.length(); i++) {
-                        if (!output.push(input.subSequence(0, i))) {
-                            return false;
-                        }
-                    }
-                    return true;
-                })
-        );
+        return stringCutter((cs, idx) -> cs.subSequence(0, idx));
     }
 
     @Override
     public Gatherer<CharSequence, ?, CharSequence> stringSuffixes() {
-        // :NOTE: общее с префикасми
+        return stringCutter((cs, idx) -> cs.subSequence(cs.length() - idx, cs.length()));
+    }
+
+    private Gatherer<CharSequence, ?, CharSequence> stringCutter(BiFunction<CharSequence, Integer, CharSequence> cutter) {
         return Gatherer.of(
                 Gatherer.Integrator.of((_, input, output) -> {
-                    for (int i = input.length() - 1; i >= 0; i--) {
-                        if (!output.push(input.subSequence(i, input.length()))) {
+                    for (int i = 1; i <= input.length(); i++) {
+                        if (!output.push(cutter.apply(input, i))) {
                             return false;
                         }
                     }
                     return true;
                 })
-        );
-    }
-
-    @Override
-    public <T> Gatherer<T, int[], T> nth(int n) {
-        return Gatherer.of(
-                () -> new int[1],
-                (state, element, downstream) -> {
-                    if (++state[0] % n == 0) {
-                        return downstream.push(element);
-                    }
-                    return true;
-                },
-                (l, r) -> {
-                    l[0] += r[0];
-                    return l;
-                },
-                (_, _) -> {
-                }
         );
     }
 
@@ -298,28 +251,21 @@ public class Streams implements AdvancedStreams {
 
     @Override
     public <T> Collector<T, ?, List<T>> head(int k) {
-        return Collector.of(
-                ArrayList::new,
-                (curHead, el) -> {
-                    if (curHead.size() < k) {
-                        curHead.add(el);
-                    }
-                },
-                (l, _) -> l,
-                Collector.Characteristics.IDENTITY_FINISH
-        );
+        return listCutter(k, List::removeLast);
     }
-
 
     @Override
     public <T> Collector<T, ?, List<T>> tail(int k) {
-        // :NOTE: общий код с head
+        return listCutter(k, List::removeFirst);
+    }
+
+    private <T> Collector<T, ?, List<T>> listCutter(int k, Function<List<T>, ?> action) {
         return Collector.of(
                 LinkedList::new,
                 (curTail, el) -> {
                     curTail.add(el);
                     if (curTail.size() > k) {
-                        curTail.removeFirst();
+                        action.apply(curTail);
                     }
                 },
                 (l, _) -> l,
@@ -353,8 +299,12 @@ public class Streams implements AdvancedStreams {
     }
 
     @Override
-    public <T> Gatherer<T, ?, T> ithOfN(int i, int n) {
-        // :NOTE: общее с kth
+    public <T> Gatherer<T, int[], T> nth(int n) {
+        return ithOfN(n - 1, n);
+    }
+
+    @Override
+    public <T> Gatherer<T, int[], T> ithOfN(int i, int n) {
         return Gatherer.of(
                 () -> new int[1],
                 (state, element, downstream) -> {
@@ -377,83 +327,37 @@ public class Streams implements AdvancedStreams {
 
     @Override
     public <T, K> Gatherer<T, ?, T> distinctPrefixBy(Function<? super T, K> function) {
-// :NOTE:       Gatherers.scan()
-        return Gatherer.of(
-                HashSet<K>::new,
-                (state, input, output) -> {
-                    K key = function.apply(input);
-                    if (!state.contains(key)) {
-                        state.add(key);
-                        return output.push(input);
+        return Gatherer.ofSequential(
+                LinkedHashSet<K>::new,
+                (state, el, downstream) -> {
+                    K key = function.apply(el);
+                    if (state.add(key)) {
+                        downstream.push(el);
+                        return true;
                     }
                     return false;
-                },
-                (l, r) -> {
-                    l.addAll(r);
-                    return l;
-                },
-                (_, _) -> {
                 }
         );
     }
 
     @Override
     public <T> Collector<T, ?, List<T>> distinctBy(Function<? super T, ?> mapper) {
-        class State {
-            final List<T> res = new ArrayList<>();
-            final Set<Object> seen = new HashSet<>();
-        }
-        // :NOTE: Collectors.
-        return Collector.of(
-                State::new,
-                (state, t) -> {
-                    Object key = mapper.apply(t);
-                    if (state.seen.add(key)) {
-                        state.res.add(t);
-                    }
-                },
-                (l, r) -> {
-                    for (T t : r.res) {
-                        Object key = mapper.apply(t);
-                        if (l.seen.add(key)) {
-                            l.res.add(t);
-                        }
-                    }
-                    return l;
-                },
-                state -> state.res
+        return Collectors.collectingAndThen(
+                Collectors.toMap(
+                        mapper,
+                        Function.identity(),
+                        (a, _) -> a,
+                        LinkedHashMap::new
+                ),
+                m -> new ArrayList<>(m.values())
         );
     }
 
     @Override
     public <T> Collector<T, ?, List<T>> minimums(Comparator<? super T> comparator) {
-        class State {
-            T min;
-            final List<T> minimums = new ArrayList<>();
-        }
-        // :NOTE:
-//        Collectors.
-        return Collector.of(
-                State::new,
-                (state, el) -> {
-                    if (state.min == null || comparator.compare(state.min, el) > 0) {
-                        state.min = el;
-                        state.minimums.clear();
-                        state.minimums.add(el);
-                    } else if (comparator.compare(state.min, el) == 0) {
-                        state.minimums.add(el);
-                    }
-                },
-                (l, r) -> {
-                    if (comparator.compare(l.min, r.min) > 0) {
-                        return r;
-                    } else if (comparator.compare(l.min, r.min) == 0) {
-                        l.minimums.addAll(r.minimums);
-                    }
-                    return l;
-                },
-                state -> state.minimums
-        );
+        return Collectors.collectingAndThen(
+                Collectors.groupingBy(Function.identity(), () -> new TreeMap<>(comparator), Collectors.toList()),
+                m -> m.isEmpty() ? List.of() : m.firstEntry().getValue());
     }
 
     @Override
