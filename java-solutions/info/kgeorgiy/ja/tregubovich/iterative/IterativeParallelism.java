@@ -6,6 +6,7 @@ import info.kgeorgiy.java.advanced.iterative.NewListIP;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.*;
 
 public class IterativeParallelism implements NewListIP, AdvancedIP {
@@ -213,18 +214,22 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
 
     private <R> R parallelReduce(int threads, int n, Supplier<R> defaultValue, BiConsumer<Integer, R> consumer, BinaryOperator<R> merge, int step)
             throws InterruptedException {
-        //note -- Objects.requireNonNull for input
+        Objects.requireNonNull(defaultValue);
+        Objects.requireNonNull(consumer);
+        Objects.requireNonNull(merge);
         threads = Math.min(threads, n);
         int nStep = (n + step - 1) / step;
         int chunkSize = (nStep + threads - 1) / threads;
         List<R> ans = new ArrayList<>();
         Thread[] workers = new Thread[threads];
-        RuntimeException[] ex = new RuntimeException[1];
+        List<RuntimeException> ex = new ArrayList<>();
         for (int t = 0; t < threads; t++) {
+            ex.add(null);
             int start = t * chunkSize;
             int finish = Math.min((t + 1) * chunkSize, nStep);
             R cur = defaultValue.get();
             ans.add(cur);
+            int curIdx = t;
             workers[t] = new Thread(() -> {
                 try {
                     for (int i = start; i < finish; i++) {
@@ -232,21 +237,38 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
                         consumer.accept(k, cur);
                     }
                 } catch (RuntimeException e) {
-                    ex[0] = e; // note -- data race
+                    ex.set(curIdx, e);
                 }
             });
             workers[t].start();
         }
 
-        //note -- catch interruppedExceprion, merge to this other exceptions
         for (Thread w : workers) {
-            w.join();
+            try {
+                w.join();
+            } catch (InterruptedException interruptedException) {
+                for (RuntimeException e : ex) {
+                    interruptedException.addSuppressed(e);
+                }
+                for (Thread w1 : workers) {
+                    w1.interrupt();
+                }
+                throw interruptedException;
+            }
         }
 
-        //note -- addSupressed у Threowable, хотим все исключрения показывать
-        if (ex[0] != null) {
-            throw ex[0];
+        RuntimeException finalException = null;
+        for (RuntimeException e : ex) {
+            if (finalException == null) {
+                finalException = e;
+            } else if (e != null) {
+                finalException.addSuppressed(e);
+            }
         }
+        if (finalException != null) {
+            throw finalException;
+        }
+
         R res = ans.getFirst();
         for (int i = 1; i < ans.size(); i++) {
             res = merge.apply(res, ans.get(i));
