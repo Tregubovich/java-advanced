@@ -211,7 +211,9 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
         )[0];
     }
 
-    private <R> R parallelReduce(int threads, int n, Supplier<R> defaultValue, BiConsumer<Integer, R> consumer, BinaryOperator<R> merge, int step) throws InterruptedException {
+    private <R> R parallelReduce(int threads, int n, Supplier<R> defaultValue, BiConsumer<Integer, R> consumer, BinaryOperator<R> merge, int step)
+            throws InterruptedException {
+        //note -- Objects.requireNonNull for input
         threads = Math.min(threads, n);
         int nStep = (n + step - 1) / step;
         int chunkSize = (nStep + threads - 1) / threads;
@@ -230,14 +232,18 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
                         consumer.accept(k, cur);
                     }
                 } catch (RuntimeException e) {
-                    ex[0] = e;
+                    ex[0] = e; // note -- data race
                 }
             });
             workers[t].start();
         }
+
+        //note -- catch interruppedExceprion, merge to this other exceptions
         for (Thread w : workers) {
             w.join();
         }
+
+        //note -- addSupressed у Threowable, хотим все исключрения показывать
         if (ex[0] != null) {
             throw ex[0];
         }
