@@ -218,12 +218,13 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
         Objects.requireNonNull(defaultValue);
         Objects.requireNonNull(consumer);
         Objects.requireNonNull(merge);
-        // note -- if n == 0
+        if (n == 0) {
+            return defaultValue.get();
+        }
 
-        //note -- threads = Math.min(threads, nStep);
-        threads = Math.min(threads, n);
         int nStep = (n + step - 1) / step;
         int chunkSize = (nStep + threads - 1) / threads;
+        threads = Math.min(threads, nStep);
         List<R> ans = new ArrayList<>();
         Thread[] workers = new Thread[threads];
         List<RuntimeException> ex = new ArrayList<>();
@@ -251,24 +252,15 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
             try {
                 w.join();
             } catch (InterruptedException interruptedException) {
-                for (RuntimeException e : ex) {
-                    interruptedException.addSuppressed(e);
-                }
+                RuntimeException finalException = supressEx(ex);
+                interruptedException.addSuppressed(finalException);
                 for (Thread w1 : workers) {
                     w1.interrupt();
                 }
                 throw interruptedException;
             }
         }
-
-        RuntimeException finalException = null;
-        for (RuntimeException e : ex) {
-            if (finalException == null) {
-                finalException = e;
-            } else if (e != null) {
-                finalException.addSuppressed(e);
-            }
-        }
+        RuntimeException finalException = supressEx(ex);
         if (finalException != null) {
             throw finalException;
         }
@@ -278,5 +270,17 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
             res = merge.apply(res, ans.get(i));
         }
         return res;
+    }
+
+    private static RuntimeException supressEx(List<RuntimeException> ex) {
+        RuntimeException finalException = null;
+        for (RuntimeException e : ex) {
+            if (finalException == null) {
+                finalException = e;
+            } else if (e != null) {
+                finalException.addSuppressed(e);
+            }
+        }
+        return finalException;
     }
 }
