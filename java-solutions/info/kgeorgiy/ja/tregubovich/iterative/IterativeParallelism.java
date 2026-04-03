@@ -1,5 +1,6 @@
 package info.kgeorgiy.ja.tregubovich.iterative;
 
+import info.kgeorgiy.java.advanced.iterative.AdvancedIP;
 import info.kgeorgiy.java.advanced.iterative.NewListIP;
 
 import java.util.ArrayList;
@@ -7,7 +8,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.function.*;
 
-public class IterativeParallelism implements NewListIP {
+public class IterativeParallelism implements NewListIP, AdvancedIP {
 
     /**
      * {@inheritDoc}
@@ -61,6 +62,34 @@ public class IterativeParallelism implements NewListIP {
     @Override
     public <T, R> List<R> map(int threads, List<? extends T> list, Function<? super T, ? extends R> function, int step) throws InterruptedException {
         return parallelProcessing(threads, list, (idx, cur) -> cur.add(function.apply(list.get(idx))), step);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public <T> T reduce(int threads, List<T> list, T identity, BinaryOperator<T> operator, int step) throws InterruptedException {
+        return mapReduce(threads, list, Function.identity(), identity, operator, step);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public <T, R> R mapReduce(int threads, List<T> list, Function<T, R> lift, R identity, BinaryOperator<R> operator, int step) throws InterruptedException {
+        class State {
+            R value = identity;
+        }
+        return parallelReduce(
+                threads,
+                list.size(),
+                State::new,
+                (idx, cur) -> cur.value = operator.apply(cur.value, lift.apply(list.get(idx))),
+                (l, r) -> {
+                    l.value = operator.apply(l.value, r.value);
+                    return l;
+                },
+                step).value;
     }
 
     private <T, E> List<E> parallelProcessing(int threads, List<? extends T> list, BiConsumer<Integer, List<E>> consumer, int step) throws InterruptedException {
