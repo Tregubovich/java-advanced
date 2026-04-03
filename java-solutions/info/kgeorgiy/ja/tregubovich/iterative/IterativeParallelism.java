@@ -99,6 +99,7 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
                 list.size(),
                 ArrayList::new,
                 consumer,
+                //note -- O(n)?
                 (a, b) -> {
                     a.addAll(b);
                     return a;
@@ -217,6 +218,9 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
         Objects.requireNonNull(defaultValue);
         Objects.requireNonNull(consumer);
         Objects.requireNonNull(merge);
+        // note -- if n == 0
+
+        //note -- threads = Math.min(threads, nStep);
         threads = Math.min(threads, n);
         int nStep = (n + step - 1) / step;
         int chunkSize = (nStep + threads - 1) / threads;
