@@ -248,6 +248,7 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
             workers[t].start();
         }
 
+        //note -- надо дождаться окончания порожденных потоков (даже если .join() бросает InterruptedException).
         for (Thread w : workers) {
             try {
                 w.join();
