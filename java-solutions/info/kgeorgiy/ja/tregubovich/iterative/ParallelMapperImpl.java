@@ -64,7 +64,7 @@ public class ParallelMapperImpl implements ParallelMapper {
             int idx = i;
             synchronized (tasks) {
                 if (closed) {
-                    throw new IllegalStateException();
+                    throw new IllegalStateException("ParallelMapper was closed");
                 }
                 tasks.add(() -> {
                     try {
@@ -96,6 +96,9 @@ public class ParallelMapperImpl implements ParallelMapper {
             }
             throw exception;
         }
+        if (closed) {
+            throw new IllegalStateException("ParallelMapper was closed");
+        }
         return res;
     }
 
@@ -104,8 +107,8 @@ public class ParallelMapperImpl implements ParallelMapper {
      */
     @Override
     public void close() {
+        closed = true;
         synchronized (tasks) {
-            closed = true;
             tasks.notifyAll();
         }
         for (Thread t : workers) {
