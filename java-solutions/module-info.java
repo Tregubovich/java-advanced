@@ -6,6 +6,7 @@ open module info.kgeorgiy.ja.tregubovich {
     requires info.kgeorgiy.java.advanced.implementor.tools;
     requires java.compiler;
     requires info.kgeorgiy.java.advanced.iterative;
+    requires info.kgeorgiy.java.advanced.mapper;
 
 
 }

@@ -2,14 +2,24 @@ package info.kgeorgiy.ja.tregubovich.iterative;
 
 import info.kgeorgiy.java.advanced.iterative.AdvancedIP;
 import info.kgeorgiy.java.advanced.iterative.NewListIP;
+import info.kgeorgiy.java.advanced.mapper.ParallelMapper;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.*;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class IterativeParallelism implements NewListIP, AdvancedIP {
+    ParallelMapper mapper;
+
+    public IterativeParallelism() {
+
+    }
+
+    public IterativeParallelism(ParallelMapper mapper) {
+        this.mapper = mapper;
+    }
+
 
     /**
      * {@inheritDoc}
@@ -24,10 +34,13 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
      */
     @Override
     public <T> int[] indices(int threads, List<? extends T> list, Predicate<? super T> predicate, int step) throws InterruptedException {
-        return parallelProcessing(threads, list, (idx, cur) -> {
-            T el = list.get(idx);
-            if (predicate.test(el)) cur.add(idx);
-        }, step).stream().mapToInt(idx -> (int) idx).toArray();
+        return parallelReduce(
+                threads,
+                list.size(),
+                IntStream.empty(),
+                (indices) -> indices.filter(i -> predicate.test(list.get(i))),
+                IntStream::concat,
+                step).toArray();
     }
 
     /**
@@ -43,10 +56,19 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
      */
     @Override
     public <T> List<T> filter(int threads, List<? extends T> list, Predicate<? super T> predicate, int step) throws InterruptedException {
-        return parallelProcessing(threads, list, (idx, cur) -> {
-            T el = list.get(idx);
-            if (predicate.test(el)) cur.add(el);
-        }, step);
+        return parallelReduce(
+                threads,
+                list.size(),
+                new ArrayList<>(),
+                (indices) -> indices
+                        .filter(i -> predicate.test(list.get(i)))
+                        .mapToObj(list::get)
+                        .collect(Collectors.toCollection(ArrayList::new)),
+                (a, b) -> {
+                    a.addAll(b);
+                    return a;
+                },
+                step);
     }
 
     /**
@@ -62,7 +84,20 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
      */
     @Override
     public <T, R> List<R> map(int threads, List<? extends T> list, Function<? super T, ? extends R> function, int step) throws InterruptedException {
-        return parallelProcessing(threads, list, (idx, cur) -> cur.add(function.apply(list.get(idx))), step);
+        int n = (list.size() + step - 1) / step;
+        List<R> res = new ArrayList<>(Collections.nCopies(n, null));
+        parallelReduce(
+                threads,
+                list.size(),
+                null,
+                (indices) -> {
+                    indices.forEach(i -> res.set(i / step, function.apply(list.get(i))));
+                    return null;
+                },
+                (_, _) -> null,
+                step
+        );
+        return res;
     }
 
     /**
@@ -78,34 +113,13 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
      */
     @Override
     public <T, R> R mapReduce(int threads, List<T> list, Function<T, R> lift, R identity, BinaryOperator<R> operator, int step) throws InterruptedException {
-        class State {
-            R value = identity;
-        }
         return parallelReduce(
                 threads,
                 list.size(),
-                State::new,
-                (idx, cur) -> cur.value = operator.apply(cur.value, lift.apply(list.get(idx))),
-                (l, r) -> {
-                    l.value = operator.apply(l.value, r.value);
-                    return l;
-                },
-                step).value;
-    }
-
-    private <T, E> List<E> parallelProcessing(int threads, List<? extends T> list, BiConsumer<Integer, List<E>> consumer, int step) throws InterruptedException {
-        return parallelReduce(
-                threads,
-                list.size(),
-                ArrayList::new,
-                consumer,
-                //note -- O(n)?
-                (a, b) -> {
-                    a.addAll(b);
-                    return a;
-                },
-                step
-        );
+                identity,
+                (indices) -> indices.mapToObj(list::get).map(lift).reduce(identity, operator),
+                operator,
+                step);
     }
 
     /**
@@ -172,20 +186,15 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
         return indexBy(threads, list, (_, b) -> b != -1 && predicate.test(list.get(b)), step, -1);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     private <T> int indexBy(int threads, List<T> list, BiPredicate<Integer, Integer> compare, int step, int zeroValue) throws InterruptedException {
         return parallelReduce(
                 threads,
                 list.size(),
-                () -> new int[]{zeroValue},
-                (i, cur) -> {
-                    if (compare.test(cur[0], i)) cur[0] = i;
-                },
-                (l, r) -> compare.test(l[0], r[0]) ? r : l,
+                zeroValue,
+                (indices) -> indices.reduce(zeroValue, (best, i) -> compare.test(best, i) ? i : best),
+                (a, b) -> compare.test(a, b) ? b : a,
                 step
-        )[0];
+        );
     }
 
     /**
@@ -204,45 +213,50 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
         return parallelReduce(
                 threads,
                 list.size(),
-                () -> new long[]{0},
-                (i, cur) -> {
-                    if (predicate.test(list.get(i))) cur[0] += i;
-                },
-                (l, r) -> new long[]{l[0] + r[0]},
+                0L,
+                (indices) -> indices.filter(i -> predicate.test(list.get(i))).asLongStream().sum(),
+                Long::sum,
                 step
-        )[0];
+        );
     }
 
-    private <R> R parallelReduce(int threads, int n, Supplier<R> defaultValue, BiConsumer<Integer, R> consumer, BinaryOperator<R> merge, int step)
+    private <R> R parallelReduce(int threads, int n, R zeroValue, Function<IntStream, R> function, BinaryOperator<R> merge, int step)
             throws InterruptedException {
-        Objects.requireNonNull(defaultValue);
-        Objects.requireNonNull(consumer);
+        Objects.requireNonNull(function);
         Objects.requireNonNull(merge);
+
         if (n == 0) {
-            return defaultValue.get();
+            return zeroValue;
         }
 
         int nStep = (n + step - 1) / step;
-        int chunkSize = (nStep + threads - 1) / threads;
         threads = Math.min(threads, nStep);
-        List<R> ans = new ArrayList<>();
-        Thread[] workers = new Thread[threads];
-        List<RuntimeException> ex = new ArrayList<>();
+        int chunkSize = nStep / threads;
+        int remaining = nStep % threads;
+
+        List<IntStream> streams = new ArrayList<>();
+        int next = 0;
         for (int t = 0; t < threads; t++) {
-            ex.add(null);
-            int start = t * chunkSize;
-            int finish = Math.min((t + 1) * chunkSize, nStep);
-            R cur = defaultValue.get();
-            ans.add(cur);
-            int curIdx = t;
+            int size = chunkSize + (t < remaining ? 1 : 0);
+            int start = next;
+            streams.add(IntStream.iterate(start * step, i -> i < (start + size) * step, i -> i + step));
+            next += size;
+        }
+
+        if (mapper != null) {
+            return mapper.map(function, streams).stream().reduce(zeroValue, merge);
+        }
+
+        List<R> res = new ArrayList<>(Collections.nCopies(threads, null));
+        Thread[] workers = new Thread[threads];
+        List<RuntimeException> ex = new ArrayList<>(Collections.nCopies(threads, null));
+        for (int t = 0; t < threads; t++) {
+            int idx = t;
             workers[t] = new Thread(() -> {
                 try {
-                    for (int i = start; i < finish; i++) {
-                        int k = i * step;
-                        consumer.accept(k, cur);
-                    }
+                    res.set(idx, function.apply(streams.get(idx)));
                 } catch (RuntimeException e) {
-                    ex.set(curIdx, e);
+                    ex.set(idx, e);
                 }
             });
             workers[t].start();
@@ -253,8 +267,6 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
             try {
                 w.join();
             } catch (InterruptedException e) {
-                RuntimeException finalException = supressEx(ex);
-                e.addSuppressed(finalException);
                 if (interruptedException == null) {
                     interruptedException = e;
                 } else {
@@ -262,22 +274,21 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
                 }
             }
         }
+
+        RuntimeException suppressedExceptions = suppressEx(ex);
         if (interruptedException != null) {
+            if (suppressedExceptions != null) {
+                interruptedException.addSuppressed(suppressedExceptions);
+            }
             throw interruptedException;
         }
-        RuntimeException finalException = supressEx(ex);
-        if (finalException != null) {
-            throw finalException;
+        if (suppressedExceptions != null) {
+            throw suppressedExceptions;
         }
-
-        R res = ans.getFirst();
-        for (int i = 1; i < ans.size(); i++) {
-            res = merge.apply(res, ans.get(i));
-        }
-        return res;
+        return res.stream().reduce(zeroValue, merge);
     }
 
-    private static RuntimeException supressEx(List<RuntimeException> ex) {
+    private static RuntimeException suppressEx(List<RuntimeException> ex) {
         RuntimeException finalException = null;
         for (RuntimeException e : ex) {
             if (finalException == null) {
