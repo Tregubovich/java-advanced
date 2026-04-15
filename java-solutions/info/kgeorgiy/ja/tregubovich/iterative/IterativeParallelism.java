@@ -8,10 +8,10 @@ import java.util.*;
 import java.util.function.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 public class IterativeParallelism implements NewListIP, AdvancedIP {
-    // :NOTE: access modifier
-    ParallelMapper mapper;
+    private ParallelMapper mapper;
 
     public IterativeParallelism() {
 
@@ -22,174 +22,115 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
     }
 
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
-    public <T> int[] indices(
-            final int threads,
-            final List<? extends T> list,
-            final Predicate<? super T> predicate
-    ) throws InterruptedException {
+    public <T> int[] indices(final int threads, final List<? extends T> list, final Predicate<? super T> predicate) throws InterruptedException {
         return indices(threads, list, predicate, 1);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public <T> int[] indices(final int threads, final List<? extends T> list, final Predicate<? super T> predicate, final int step) throws InterruptedException {
         return parallelReduce(
                 threads,
                 list.size(),
+                step,
                 IntStream.empty(),
-                indices -> indices.filter(i -> predicate.test(list.get(i))),
-                IntStream::concat,
-                step
+                indices -> indices.get().filter(i -> predicate.test(list.get(i))),
+                IntStream::concat
         ).toArray();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public <T> List<T> filter(final int threads, final List<? extends T> list, final Predicate<? super T> predicate) throws InterruptedException {
         return filter(threads, list, predicate, 1);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
+    @SuppressWarnings("unchecked")
     public <T> List<T> filter(final int threads, final List<? extends T> list, final Predicate<? super T> predicate, final int step) throws InterruptedException {
-        return parallelReduce(
-                threads,
-                list.size(),
-                new ArrayList<>(),
-                (indices) -> indices
-                        .filter(i -> predicate.test(list.get(i)))
-                        .mapToObj(list::get)
-                        .collect(Collectors.toCollection(ArrayList::new)),
-                // :NOTE: use streams
-                (a, b) -> {
-                    a.addAll(b);
-                    return a;
-                },
-                step
-        );
+        return (List<T>) parallelProcess(threads, list, s -> s.filter(predicate), step);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public <T, U> List<U> map(final int threads, final List<? extends T> list, final Function<? super T, ? extends U> function) throws InterruptedException {
         return map(threads, list, function, 1);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public <T, R> List<R> map(final int threads, final List<? extends T> list, final Function<? super T, ? extends R> function, final int step) throws InterruptedException {
-        final int n = (list.size() + step - 1) / step;
-        final List<R> res = new ArrayList<>(Collections.nCopies(n, null));
-        parallelReduce(
-                threads,
-                list.size(),
-                null,
-                (indices) -> {
-                    // :NOTE: + Mapper
-                    indices.forEach(i -> res.set(i / step, function.apply(list.get(i))));
-                    return null;
-                },
-                (_, _) -> null,
-                step
-        );
-        return res;
+        return parallelProcess(threads, list, s -> s.map(function), step);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    public <T, R> List<R> parallelProcess(final int threads,
+                                          final List<? extends T> list,
+                                          final Function<Stream<T>, Stream<R>> action,
+                                          final int step) throws InterruptedException {
+        return parallelReduce(
+                threads,
+                list.size(),
+                step,
+                new ArrayList<>(),
+                indices -> action.apply(indices
+                        .get()
+                        .mapToObj(list::get)).toList(),
+                (a, b) -> {
+                    a.addAll(b);
+                    return a;
+                }
+        );
+    }
+
     @Override
     public <T> T reduce(final int threads, final List<T> list, final T identity, final BinaryOperator<T> operator, final int step) throws InterruptedException {
         return mapReduce(threads, list, Function.identity(), identity, operator, step);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public <T, R> R mapReduce(final int threads, final List<T> list, final Function<T, R> lift, final R identity, final BinaryOperator<R> operator, final int step) throws InterruptedException {
         return parallelReduce(
                 threads,
                 list.size(),
+                step,
                 identity,
-                (indices) -> indices.mapToObj(list::get).map(lift).reduce(identity, operator),
-                operator,
-                step);
+                (indices) -> indices.get().mapToObj(list::get).map(lift).reduce(identity, operator),
+                operator
+        );
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public <T> int argMax(final int threads, final List<T> list, final Comparator<? super T> comparator) throws InterruptedException {
         return argMax(threads, list, comparator, 1);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public <T> int argMax(final int threads, final List<T> list, final Comparator<? super T> comparator, final int step) throws InterruptedException {
         return indexBy(threads, list, (a, b) -> comparator.compare(list.get(b), list.get(a)) > 0, step, 0);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public <T> int argMin(final int threads, final List<T> list, final Comparator<? super T> comparator) throws InterruptedException {
         return argMin(threads, list, comparator, 1);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public <T> int argMin(final int threads, final List<T> list, final Comparator<? super T> comparator, final int step) throws InterruptedException {
         return indexBy(threads, list, (a, b) -> comparator.compare(list.get(b), list.get(a)) < 0, step, 0);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public <T> int indexOf(final int threads, final List<T> list, final Predicate<? super T> predicate) throws InterruptedException {
         return indexOf(threads, list, predicate, 1);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public <T> int indexOf(final int threads, final List<T> list, final Predicate<? super T> predicate, final int step) throws InterruptedException {
         return indexBy(threads, list, (a, b) -> a == -1 && (b == -1 || predicate.test(list.get(b))), step, -1);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public <T> int lastIndexOf(final int threads, final List<T> list, final Predicate<? super T> predicate) throws InterruptedException {
         return lastIndexOf(threads, list, predicate, 1);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public <T> int lastIndexOf(final int threads, final List<T> list, final Predicate<? super T> predicate, final int step) throws InterruptedException {
         return indexBy(threads, list, (_, b) -> b != -1 && predicate.test(list.get(b)), step, -1);
@@ -199,38 +140,37 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
         return parallelReduce(
                 threads,
                 list.size(),
+                step,
                 zeroValue,
                 // :NOTE: simplify
-                (indices) -> indices.reduce(zeroValue, (best, i) -> compare.test(best, i) ? i : best),
-                (a, b) -> compare.test(a, b) ? b : a,
-                step
+                (indices) -> indices.get().reduce(zeroValue, (best, i) -> compare.test(best, i) ? i : best),
+                (a, b) -> compare.test(a, b) ? b : a
         );
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public <T> long sumIndices(final int threads, final List<? extends T> list, final Predicate<? super T> predicate) throws InterruptedException {
         return sumIndices(threads, list, predicate, 1);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public <T> long sumIndices(final int threads, final List<? extends T> list, final Predicate<? super T> predicate, final int step) throws InterruptedException {
         return parallelReduce(
                 threads,
                 list.size(),
+                step,
                 0L,
-                (indices) -> indices.filter(i -> predicate.test(list.get(i))).asLongStream().sum(),
-                Long::sum,
-                step
+                (indices) -> indices.get().filter(i -> predicate.test(list.get(i))).asLongStream().sum(),
+                Long::sum
         );
     }
 
-    private <R> R parallelReduce(int threads, final int n, final R zeroValue, final Function<IntStream, R> function, final BinaryOperator<R> merge, final int step)
+    private <R> R parallelReduce(int threads,
+                                 final int n,
+                                 final int step,
+                                 final R zeroValue,
+                                 final Function<Supplier<IntStream>, R> function,
+                                 final BinaryOperator<R> merge)
             throws InterruptedException {
         Objects.requireNonNull(function);
         Objects.requireNonNull(merge);
@@ -241,54 +181,66 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
 
         final int nStep = (n + step - 1) / step;
         threads = Math.min(threads, nStep);
+        final List<Supplier<IntStream>> streams = getSuppliers(threads, step, nStep);
+
+        final List<R> res;
+        if (mapper != null) {
+            res = mapper.map(function, streams);
+        } else {
+            res = map(threads, function, streams);
+        }
+        return res.stream().reduce(zeroValue, merge);
+    }
+
+    private static List<Supplier<IntStream>> getSuppliers(int threads, int step, int nStep) {
         final int chunkSize = nStep / threads;
         final int remaining = nStep % threads;
 
-        // :NOTE: Supplier<IntStream>
-        final List<IntStream> streams = new ArrayList<>();
+        final List<Supplier<IntStream>> streams = new ArrayList<>();
         int next = 0;
         for (int t = 0; t < threads; t++) {
             final int size = chunkSize + (t < remaining ? 1 : 0);
             final int start = next;
-            streams.add(IntStream.iterate(start * step, i -> i < (start + size) * step, i -> i + step));
+            streams.add(() -> IntStream.iterate(start * step, i -> i < (start + size) * step, i -> i + step));
             next += size;
         }
-
-        if (mapper != null) {
-            return mapper.map(function, streams).stream().reduce(zeroValue, merge);
-        }
-
-        final List<R> res = map(threads, function, streams);
-        // :NOTE: copy-paste
-        return res.stream().reduce(zeroValue, merge);
+        return streams;
     }
 
     private static <R> List<R> map(
             final int threads,
-            final Function<IntStream, R> function,
-            final List<IntStream> streams
+            final Function<Supplier<IntStream>, R> function,
+            final List<Supplier<IntStream>> streams
     ) throws InterruptedException {
         final List<R> res = new ArrayList<>(Collections.nCopies(threads, null));
-        // :NOTE: array
-        final Thread[] workers = new Thread[threads];
+        final List<Thread> workers = new ArrayList<>(Collections.nCopies(threads, null));
         final List<RuntimeException> ex = new ArrayList<>(Collections.nCopies(threads, null));
-        // :NOTE: stream-per-action
+//        IntStream.range(0, threads)
+//                .forEach(idx -> workers.set(idx, new Thread(() -> {
+//                    try {
+//                        res.set(idx, function.apply(streams.get(idx)));
+//                    } catch (final RuntimeException e) {
+//                        ex.set(idx, e);
+//                    }
+//                })));
+//        workers.forEach(Thread::start);
+
         for (int t = 0; t < threads; t++) {
             final int idx = t;
-            workers[t] = new Thread(() -> {
+            workers.set(t, new Thread(() -> {
                 try {
                     res.set(idx, function.apply(streams.get(idx)));
                 } catch (final RuntimeException e) {
                     ex.set(idx, e);
                 }
-            });
-            workers[t].start();
+            }));
+            workers.get(t).start();
         }
 
         InterruptedException interruptedException = null;
         for (final Thread w : workers) {
             try {
-                w.join(); // :NOTE: IE
+                w.join();
             } catch (final InterruptedException e) {
                 if (interruptedException == null) {
                     interruptedException = e;
