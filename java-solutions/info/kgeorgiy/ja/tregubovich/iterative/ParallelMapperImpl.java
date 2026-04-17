@@ -20,7 +20,7 @@ public class ParallelMapperImpl implements ParallelMapper {
     public ParallelMapperImpl(final int threads) {
         workers = new ArrayList<>(Collections.nCopies(threads, null));
         tasks = new LinkedList<>();
-         IntStream.range(0, threads).forEach(t-> workers.set(t, new Thread(() -> {
+        IntStream.range(0, threads).forEach(t -> workers.set(t, new Thread(() -> {
             Runnable task;
             while (!Thread.currentThread().isInterrupted()) {
                 try {
@@ -59,9 +59,6 @@ public class ParallelMapperImpl implements ParallelMapper {
         for (int i = 0; i < n; i++) {
             final int idx = i;
             synchronized (tasks) {
-                if (closed) {
-                    throw new IllegalStateException("ParallelMapper was closed");
-                }
                 tasks.add(() -> {
                     try {
                         res.set(idx, function.apply(list.get(idx)));
@@ -82,15 +79,14 @@ public class ParallelMapperImpl implements ParallelMapper {
             }
         }
         if (!ex.isEmpty()) {
-            RuntimeException exception = null;
-            for (final RuntimeException e : ex) {
-                if (exception != null) {
-                    exception.addSuppressed(e);
-                } else {
-                    exception = e;
+            throw ex.stream().reduce(null, (finalException, e) -> {
+                if (finalException == null) {
+                    return e;
+                } else if (e != null) {
+                    finalException.addSuppressed(e);
                 }
-            }
-            throw exception;
+                return finalException;
+            });
         }
         if (closed) {
             throw new IllegalStateException("ParallelMapper was closed");
@@ -101,6 +97,7 @@ public class ParallelMapperImpl implements ParallelMapper {
     @Override
     public void close() {
         closed = true;
+        tasks.notifyAll();
         for (final Thread t : workers) {
             t.interrupt();
         }

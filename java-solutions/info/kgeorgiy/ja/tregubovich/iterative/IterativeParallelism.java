@@ -124,7 +124,7 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
 
     @Override
     public <T> int indexOf(final int threads, final List<T> list, final Predicate<? super T> predicate, final int step) throws InterruptedException {
-        return indexBy(threads, list, intStream -> intStream.filter(idx -> idx != -1 && predicate.test(list.get(idx))).findFirst().orElse(-1), step, -1);
+        return indexOf(threads, list, predicate, step, true);
     }
 
     @Override
@@ -134,10 +134,21 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
 
     @Override
     public <T> int lastIndexOf(final int threads, final List<T> list, final Predicate<? super T> predicate, final int step) throws InterruptedException {
-        return indexBy(threads, list, intStream -> intStream.filter(idx -> idx != -1 && predicate.test(list.get(idx))).reduce((_, b) -> b).orElse(-1), step, -1);
+        return indexOf(threads, list, predicate, step, false);
     }
 
-    private <T> int indexBy(final int threads, final List<T> list, final Function<IntStream, Integer> action, final int step, final int zeroValue) throws InterruptedException {
+    private <T> int indexOf(final int threads, final List<T> list, final Predicate<? super T> predicate, final int step, final boolean isFirst) throws InterruptedException {
+        return indexBy(threads, list, intStream -> intStream
+                .filter(idx -> idx != -1 && predicate.test(list.get(idx)))
+                .reduce((a, b) -> (isFirst ? a : b))
+                .orElse(-1), step, -1);
+    }
+
+    private <T> int indexBy(final int threads,
+                            final List<T> list,
+                            final Function<IntStream, Integer> action,
+                            final int step,
+                            final int zeroValue) throws InterruptedException {
         return parallelReduce(
                 threads,
                 list.size(),
@@ -154,7 +165,10 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
     }
 
     @Override
-    public <T> long sumIndices(final int threads, final List<? extends T> list, final Predicate<? super T> predicate, final int step) throws InterruptedException {
+    public <T> long sumIndices(final int threads,
+                               final List<? extends T> list,
+                               final Predicate<? super T> predicate,
+                               final int step) throws InterruptedException {
         return parallelReduce(
                 threads,
                 list.size(),
@@ -192,7 +206,7 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
         return res.stream().reduce(zeroValue, merge);
     }
 
-    private static List<Supplier<IntStream>> getSuppliers(int threads, int step, int nStep) {
+    private static List<Supplier<IntStream>> getSuppliers(final int threads, final int step, final int nStep) {
         final int chunkSize = nStep / threads;
         final int remaining = nStep % threads;
 
@@ -207,11 +221,9 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
         return streams;
     }
 
-    private static <R> List<R> map(
-            final int threads,
-            final Function<Supplier<IntStream>, R> function,
-            final List<Supplier<IntStream>> streams
-    ) throws InterruptedException {
+    private static <R> List<R> map(final int threads,
+                                   final Function<Supplier<IntStream>, R> function,
+                                   final List<Supplier<IntStream>> streams) throws InterruptedException {
         final List<R> res = new ArrayList<>(Collections.nCopies(threads, null));
         final List<Thread> workers = new ArrayList<>(Collections.nCopies(threads, null));
         final List<RuntimeException> ex = new ArrayList<>(Collections.nCopies(threads, null));
