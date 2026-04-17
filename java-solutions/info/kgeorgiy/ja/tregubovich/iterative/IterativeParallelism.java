@@ -57,21 +57,21 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
 
     @Override
     public <T, R> List<R> map(final int threads, final List<? extends T> list, final Function<? super T, ? extends R> function, final int step) throws InterruptedException {
-        return parallelProcess(threads, list, s -> s.map(function::apply), step);
+        return parallelProcess(threads, list, s -> s.map(function), step);
     }
 
     public <T, R> List<R> parallelProcess(final int threads,
-                                          final List<? extends T> list,
-                                          final Function<Stream<T>, Stream<R>> action,
-                                          final int step) throws InterruptedException {
+            final List<? extends T> list,
+            final Function<Stream<T>, Stream<R>> action,
+            final int step
+    ) throws InterruptedException {
         return parallelReduce(
                 threads,
                 list.size(),
                 step,
                 new ArrayList<>(),
-                indices -> action.apply(indices
-                        .get()
-                        .mapToObj(list::get)).toList(),
+                indices -> action.apply(indices.get().mapToObj(list::get))
+                        .toList(),
                 (a, b) -> {
                     a.addAll(b);
                     return a;
