@@ -46,6 +46,7 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
     @Override
     @SuppressWarnings("unchecked")
     public <T> List<T> filter(final int threads, final List<? extends T> list, final Predicate<? super T> predicate, final int step) throws InterruptedException {
+        // :NOTE: unchecked
         return (List<T>) parallelProcess(threads, list, s -> s.filter(predicate), step);
     }
 
@@ -56,7 +57,7 @@ public class IterativeParallelism implements NewListIP, AdvancedIP {
 
     @Override
     public <T, R> List<R> map(final int threads, final List<? extends T> list, final Function<? super T, ? extends R> function, final int step) throws InterruptedException {
-        return parallelProcess(threads, list, s -> s.map(el -> function.apply(el)), step);
+        return parallelProcess(threads, list, s -> s.map(function::apply), step);
     }
 
     public <T, R> List<R> parallelProcess(final int threads,
