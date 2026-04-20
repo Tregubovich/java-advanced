@@ -97,7 +97,6 @@ public class ParallelMapperImpl implements ParallelMapper {
     @Override
     public void close() {
         closed = true;
-        tasks.notifyAll();
         for (final Thread t : workers) {
             t.interrupt();
         }
