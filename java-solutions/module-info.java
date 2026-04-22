@@ -7,6 +7,7 @@ open module info.kgeorgiy.ja.tregubovich {
     requires java.compiler;
     requires info.kgeorgiy.java.advanced.iterative;
     requires info.kgeorgiy.java.advanced.mapper;
+    requires info.kgeorgiy.java.advanced.crawler;
 
 
 }
