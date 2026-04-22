@@ -104,9 +104,12 @@ public class ParallelMapperImpl implements ParallelMapper {
             t.interrupt();
         }
         for (final Thread t : workers) {
-            try {
-                t.join();
-            } catch (final InterruptedException ignored) {
+            while (true) {
+                try {
+                    t.join();
+                    break;
+                } catch (final InterruptedException _) {
+                }
             }
         }
     }
