@@ -1,13 +1,16 @@
 package info.kgeorgiy.ja.tregubovich.hello;
 
 import info.kgeorgiy.java.advanced.hello.HelloServer;
+import info.kgeorgiy.java.advanced.hello.NewHelloServer;
 
 import java.io.IOException;
 import java.net.*;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class HelloUDPServer implements HelloServer {
+public class HelloUDPServer implements NewHelloServer {
     static void main(final String... args) {
         if (args.length != 2) {
             System.err.println("Usage: HelloUDPServer <port> <threads>");
@@ -19,39 +22,52 @@ public class HelloUDPServer implements HelloServer {
         }
     }
 
-    private DatagramSocket socket;
+    private final Map<Integer, DatagramSocket> sockets = new ConcurrentHashMap<>();
     private ExecutorService executor;
 
     @Override
-    public void start(final int port, final int threads) {
-        try {
-            socket = new DatagramSocket(port);
-        } catch (final SocketException e) {
-            throw new RuntimeException(e);
+    public void start(final int threads, final Map<Integer, String> ports) {
+        executor = Executors.newFixedThreadPool(threads);
+        for (final Map.Entry<Integer, String> entry : ports.entrySet()) {
+            final int port = entry.getKey();
+            final String format = entry.getValue();
+            try {
+                final DatagramSocket socket = new DatagramSocket(port);
+                sockets.put(port, socket);
+            } catch (final SocketException e) {
+                throw new RuntimeException("Can't start port: " + port, e);
+            }
+            executor.submit(getTask(port, format));
         }
-        executor = Executors.newThreadPerTaskExecutor(Thread.ofPlatform().factory());
-        executor.submit(() -> {
-            DatagramPacket packet = new DatagramPacket(new byte[1024], 1024);
+    }
+
+    private Runnable getTask(final int port, final String format) {
+        return () -> {
+            final DatagramSocket socket = sockets.get(port);
+            final DatagramPacket requestPacket = new DatagramPacket(new byte[1024], 1024);
+
             while (!socket.isClosed()) {
                 try {
-                    socket.receive(packet);
+                    socket.receive(requestPacket);
+                    final String msg = new String(requestPacket.getData(), requestPacket.getOffset(), requestPacket.getLength());
 
-                    final InetAddress addressDestination = packet.getAddress();
-                    final int portDestination = packet.getPort();
-
-                    final byte[] msg = ("Hello, " + new String(packet.getData(), 0, packet.getLength())).getBytes();
-                    packet = new DatagramPacket(msg, msg.length, addressDestination, portDestination);
-                    socket.send(packet);
-                } catch (final IOException e) {
-                    throw new RuntimeException(e);
+                    final byte[] response = format.replace("%%", msg).getBytes();
+                    final DatagramPacket responsePacket = new DatagramPacket(
+                            response,
+                            response.length,
+                            requestPacket.getAddress(),
+                            requestPacket.getPort());
+                    socket.send(responsePacket);
+                } catch (final IOException _) {
+                    break;
                 }
             }
-        });
+        };
     }
 
     @Override
     public void close() {
-        socket.close();
-        executor.close();
+        sockets.values().forEach(DatagramSocket::close);
+        executor.shutdownNow();
     }
 }
