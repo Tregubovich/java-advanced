@@ -73,7 +73,7 @@ public class WebCrawler implements AdvancedCrawler {
 
     @Override
     public Result advancedDownload(final String url, final int depth, final List<String> hosts) {
-        final Set<String> unique = new HashSet<>(hosts);
+        final Set<String> unique = new HashSet<>(hosts); // :NOTE: OutOfMemoryError: Java heap space
         return download(url, depth, curUrl -> {
             try {
                 return unique.contains(URLUtils.getHost(curUrl));
@@ -121,6 +121,7 @@ public class WebCrawler implements AdvancedCrawler {
         }
         phaser.arriveAndAwaitAdvance();
         recursiveDownload(new ArrayList<>(nextUrls), used, downloaded, errors, depth - 1, urlFilter);
+        // :NOTE: стек рекрсии
     }
 
     private String getHost(final String url) {
@@ -131,7 +132,7 @@ public class WebCrawler implements AdvancedCrawler {
             throw new RuntimeException(exception);
         }
         hostsPermits.putIfAbsent(host, new Semaphore(perHost));
-        hostsPermits.get(host).acquireUninterruptibly();
+        hostsPermits.get(host).acquireUninterruptibly(); // :NOTE: блокируем рабочие потоки скачивания
         return host;
     }
 
@@ -149,7 +150,8 @@ public class WebCrawler implements AdvancedCrawler {
                 hostsPermits.get(host).release();
 
                 downloaded.add(url);
-                phaser.register();
+                phaser.register(); // :NOTE: на последнем уровне не надо извлекать
+                // :NOTE: вынести
                 extractorExecutor.submit(() -> {
                     try {
                         final List<String> extracted = document.extractLinks();
