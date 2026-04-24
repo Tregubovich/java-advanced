@@ -118,43 +118,59 @@ public class WebCrawler implements AdvancedCrawler {
                 continue;
             }
 
+            final String host = getHost(url);
+
             phaser.register();
-            final String host;
-            try {
-                host = URLUtils.getHost(url);
-            } catch (final MalformedURLException exception) {
-                throw new RuntimeException(exception);
-            }
-            hostsPermits.putIfAbsent(host, new Semaphore(perHost));
-            hostsPermits.get(host).acquireUninterruptibly();
-
-            downloadExecutor.submit(() -> {
-                try {
-                    final Document document = downloader.download(url);
-                    hostsPermits.get(host).release();
-
-                    downloaded.add(url);
-                    phaser.register();
-                    extractorExecutor.submit(() -> {
-                        try {
-                            final List<String> extracted = document.extractLinks();
-                            nextUrls.addAll(extracted);
-                        } catch (final IOException exception) {
-                            errors.put(url, exception);
-                        } finally {
-                            phaser.arriveAndDeregister();
-                        }
-                    });
-                } catch (final IOException exception) {
-                    errors.put(url, exception);
-                    hostsPermits.get(host).release();
-                } finally {
-                    phaser.arriveAndDeregister();
-                }
-            });
+            downloadExecutor.submit(getTask(downloaded, errors, url, host, phaser, nextUrls));
         }
         phaser.arriveAndAwaitAdvance();
         recursiveDownload(new ArrayList<>(nextUrls), used, downloaded, errors, depth - 1, urlFilter);
+    }
+
+    private String getHost(final String url) {
+        final String host;
+        try {
+            host = URLUtils.getHost(url);
+        } catch (final MalformedURLException exception) {
+            throw new RuntimeException(exception);
+        }
+        hostsPermits.putIfAbsent(host, new Semaphore(perHost));
+        hostsPermits.get(host).acquireUninterruptibly();
+        return host;
+    }
+
+    private Runnable getTask(
+            final Set<String> downloaded,
+            final Map<String, IOException> errors,
+            final String url,
+            final String host,
+            final Phaser phaser,
+            final Queue<String> nextUrls
+    ) {
+        return () -> {
+            try {
+                final Document document = downloader.download(url);
+                hostsPermits.get(host).release();
+
+                downloaded.add(url);
+                phaser.register();
+                extractorExecutor.submit(() -> {
+                    try {
+                        final List<String> extracted = document.extractLinks();
+                        nextUrls.addAll(extracted);
+                    } catch (final IOException exception) {
+                        errors.put(url, exception);
+                    } finally {
+                        phaser.arriveAndDeregister();
+                    }
+                });
+            } catch (final IOException exception) {
+                errors.put(url, exception);
+                hostsPermits.get(host).release();
+            } finally {
+                phaser.arriveAndDeregister();
+            }
+        };
     }
 
     @Override
