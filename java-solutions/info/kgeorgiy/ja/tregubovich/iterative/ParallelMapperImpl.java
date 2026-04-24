@@ -79,19 +79,19 @@ public class ParallelMapperImpl implements ParallelMapper {
             }
         }
         if (!ex.isEmpty()) {
-            throw ex.stream().reduce(null, (finalException, e) -> {
-                if (finalException == null) {
-                    return e;
-                } else if (e != null) {
-                    finalException.addSuppressed(e);
-                }
-                return finalException;
-            });
+            throw suppressEx(ex);
         }
         if (closed) {
             throw new IllegalStateException("ParallelMapper was closed");
         }
         return res;
+    }
+
+    private static RuntimeException suppressEx(final List<RuntimeException> ex) {
+        return ex.stream().reduce((resException, curException) -> {
+            resException.addSuppressed(curException);
+            return resException;
+        }).orElse(null);
     }
 
     @Override
