@@ -20,7 +20,7 @@ public class ParallelMapperImpl implements ParallelMapper {
     public ParallelMapperImpl(final int threads) {
         workers = new ArrayList<>(Collections.nCopies(threads, null));
         tasks = new LinkedList<>();
-        IntStream.range(0, threads).forEach(t -> workers.set(t, new Thread(() -> {
+        IntStream.range(0, threads).forEach(t -> workers.set(t, new Thread(() -> { // :NOTE: 1 instance for all threads
             Runnable task;
             while (!Thread.currentThread().isInterrupted()) {
                 try {
@@ -98,7 +98,7 @@ public class ParallelMapperImpl implements ParallelMapper {
     public void close() {
         closed = true;
         synchronized (tasks) {
-            tasks.notifyAll();
+            tasks.notifyAll(); // :NOTE: clear, не досчитывать
         }
         for (final Thread t : workers) {
             t.interrupt();
