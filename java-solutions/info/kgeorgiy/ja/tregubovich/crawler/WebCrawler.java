@@ -131,6 +131,7 @@ public class WebCrawler implements AdvancedCrawler {
             downloadExecutor.submit(() -> {
                 try {
                     final Document document = downloader.download(url);
+                    hostsPermits.get(host).release();
 
                     downloaded.add(url);
                     phaser.register();
@@ -146,8 +147,8 @@ public class WebCrawler implements AdvancedCrawler {
                     });
                 } catch (final IOException exception) {
                     errors.put(url, exception);
-                } finally {
                     hostsPermits.get(host).release();
+                } finally {
                     phaser.arriveAndDeregister();
                 }
             });
