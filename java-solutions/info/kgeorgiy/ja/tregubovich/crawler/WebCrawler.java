@@ -9,20 +9,16 @@ import java.util.concurrent.*;
 import java.util.function.Predicate;
 
 public class WebCrawler implements AdvancedCrawler {
-    final Downloader downloader;
-    final int downloaders;
-    final int extractors;
+    private final Downloader downloader;
 
-    final int perHost;
-    final Map<String, Semaphore> hostsPermits;
+    private final int perHost;
+    private final Map<String, Semaphore> hostsPermits;
 
-    final ExecutorService downloadExecutor;
-    final ExecutorService extractorExecutor;
+    private final ExecutorService downloadExecutor;
+    private final ExecutorService extractorExecutor;
 
     public WebCrawler(final Downloader downloader, final int downloaders, final int extractors, final int perHost) {
         this.downloader = downloader;
-        this.downloaders = downloaders;
-        this.extractors = extractors;
 
         this.perHost = perHost;
         hostsPermits = new ConcurrentHashMap<>();
