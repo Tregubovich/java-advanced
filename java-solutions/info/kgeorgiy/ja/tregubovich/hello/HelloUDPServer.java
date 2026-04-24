@@ -8,6 +8,17 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class HelloUDPServer implements HelloServer {
+    static void main(final String... args) {
+        if (args.length != 2) {
+            System.err.println("Usage: HelloUDPServer <port> <threads>");
+        }
+        final int port = Integer.parseInt(args[0]);
+        final int threads = Integer.parseInt(args[1]);
+        try (final HelloServer server = new HelloUDPServer()) {
+            server.start(port, threads);
+        }
+    }
+
     private DatagramSocket socket;
     private ExecutorService executor;
 
