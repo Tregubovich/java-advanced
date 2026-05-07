@@ -11,8 +11,18 @@ import java.util.function.Predicate;
 public class WebCrawler implements AdvancedCrawler {
     private final Downloader downloader;
 
+    private static class HostSemaphore {
+        final Semaphore semaphore;
+        final Queue<Runnable> queue;
+
+        HostSemaphore(final int perHost) {
+            semaphore = new Semaphore(perHost);
+            queue = new ArrayDeque<>();
+        }
+    }
+
     private final int perHost;
-    private final Map<String, Semaphore> hostsPermits;
+    private final Map<String, HostSemaphore> hostsPermits;
 
     private final ExecutorService downloadExecutor;
     private final ExecutorService extractorExecutor;
@@ -73,7 +83,8 @@ public class WebCrawler implements AdvancedCrawler {
 
     @Override
     public Result advancedDownload(final String url, final int depth, final List<String> hosts) {
-        final Set<String> unique = new HashSet<>(hosts); // :NOTE: OutOfMemoryError: Java heap space
+        final Set<String> unique = new HashSet<>();
+        unique.addAll(hosts);
         return download(url, depth, curUrl -> {
             try {
                 return unique.contains(URLUtils.getHost(curUrl));
@@ -83,45 +94,58 @@ public class WebCrawler implements AdvancedCrawler {
         });
     }
 
-    private Result download(final String url, final int depth, final Predicate<String> urlFilter) {
+    private Result download(final String url, int depth, final Predicate<String> urlFilter) {
         final Set<String> used = ConcurrentHashMap.newKeySet();
         final Set<String> downloaded = ConcurrentHashMap.newKeySet();
         final Map<String, IOException> errors = new ConcurrentHashMap<>();
 
-        recursiveDownload(List.of(url), used, downloaded, errors, depth, urlFilter);
+        List<String> urls = List.of(url);
+        while (depth-- > 0) {
+            final Phaser phaser = new Phaser(1);
+            final List<String> nextUrls = Collections.synchronizedList(new ArrayList<>(urls));
+
+            for (final String url1 : urls) {
+                if (!used.add(url1) || !urlFilter.test(url1)) {
+                    continue;
+                }
+
+                final String host = getHost(url1);
+                phaser.register();
+                submitTask(host, getDownloadTask(depth, downloaded, errors, url1, phaser, nextUrls));
+            }
+            phaser.arriveAndAwaitAdvance();
+            urls = nextUrls;
+        }
         return new Result(new ArrayList<>(downloaded), errors);
     }
 
-    private void recursiveDownload(
-            final List<String> urls,
-            final Set<String> used,
-            final Set<String> downloaded,
-            final Map<String, IOException> errors,
-            final int depth,
-            final Predicate<String> urlFilter) {
-        if (depth <= 0) {
-            return;
-        }
-
-        final Phaser phaser = new Phaser(1);
-        final Queue<String> nextUrls = new ConcurrentLinkedQueue<>();
-
-        for (final String url : urls) {
-            if (!used.add(url)) {
-                continue;
+    private void submitTask(final String host, final Runnable task) {
+        final HostSemaphore permits = hostsPermits.computeIfAbsent(host, _ -> new HostSemaphore(perHost));
+        synchronized (permits) {
+            if (permits.semaphore.tryAcquire()) {
+                downloadExecutor.submit(() -> {
+                    task.run();
+                    releaseNext(permits);
+                });
+            } else {
+                permits.queue.add(task);
             }
-            if (!urlFilter.test(url)) {
-                continue;
-            }
-
-            final String host = getHost(url);
-
-            phaser.register();
-            downloadExecutor.submit(getTask(downloaded, errors, url, host, phaser, nextUrls));
         }
-        phaser.arriveAndAwaitAdvance();
-        recursiveDownload(new ArrayList<>(nextUrls), used, downloaded, errors, depth - 1, urlFilter);
-        // :NOTE: стек рекрсии
+    }
+
+    private void releaseNext(final HostSemaphore permits) {
+        final Runnable next;
+        synchronized (permits) {
+            next = permits.queue.poll();
+            if (next == null) {
+                permits.semaphore.release();
+                return;
+            }
+        }
+        downloadExecutor.submit(() -> {
+            next.run();
+            releaseNext(permits);
+        });
     }
 
     private String getHost(final String url) {
@@ -131,40 +155,48 @@ public class WebCrawler implements AdvancedCrawler {
         } catch (final MalformedURLException exception) {
             throw new RuntimeException(exception);
         }
-        hostsPermits.putIfAbsent(host, new Semaphore(perHost));
-        hostsPermits.get(host).acquireUninterruptibly(); // :NOTE: блокируем рабочие потоки скачивания
         return host;
     }
 
-    private Runnable getTask(
+    private Runnable getDownloadTask(
+            final int depth,
             final Set<String> downloaded,
             final Map<String, IOException> errors,
             final String url,
-            final String host,
             final Phaser phaser,
-            final Queue<String> nextUrls
+            final List<String> nextUrls
     ) {
         return () -> {
             try {
                 final Document document = downloader.download(url);
-                hostsPermits.get(host).release();
 
                 downloaded.add(url);
-                phaser.register(); // :NOTE: на последнем уровне не надо извлекать
-                // :NOTE: вынести
-                extractorExecutor.submit(() -> {
-                    try {
-                        final List<String> extracted = document.extractLinks();
-                        nextUrls.addAll(extracted);
-                    } catch (final IOException exception) {
-                        errors.put(url, exception);
-                    } finally {
-                        phaser.arriveAndDeregister();
-                    }
-                });
+                if (depth == 0) {
+                    return;
+                }
+                phaser.register();
+                extractorExecutor.submit(getExtractorTask(errors, url, phaser, nextUrls, document));
             } catch (final IOException exception) {
                 errors.put(url, exception);
-                hostsPermits.get(host).release();
+            } finally {
+                phaser.arriveAndDeregister();
+            }
+        };
+    }
+
+    private static Runnable getExtractorTask(
+            final Map<String, IOException> errors,
+            final String url,
+            final Phaser phaser,
+            final List<String> nextUrls,
+            final Document document
+    ) {
+        return () -> {
+            try {
+                final List<String> extracted = document.extractLinks();
+                nextUrls.addAll(extracted);
+            } catch (final IOException exception) {
+                errors.put(url, exception);
             } finally {
                 phaser.arriveAndDeregister();
             }
