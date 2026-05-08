@@ -119,6 +119,16 @@ public class WebCrawler implements AdvancedCrawler {
         return new Result(new ArrayList<>(downloaded), errors);
     }
 
+    private String getHost(final String url) {
+        final String host;
+        try {
+            host = URLUtils.getHost(url);
+        } catch (final MalformedURLException exception) {
+            throw new RuntimeException(exception);
+        }
+        return host;
+    }
+
     private void submitTask(final String host, final Runnable task) {
         final HostSemaphore permits = hostsPermits.computeIfAbsent(host, _ -> new HostSemaphore(perHost));
         synchronized (permits) {
@@ -146,16 +156,6 @@ public class WebCrawler implements AdvancedCrawler {
             next.run();
             releaseNext(permits);
         });
-    }
-
-    private String getHost(final String url) {
-        final String host;
-        try {
-            host = URLUtils.getHost(url);
-        } catch (final MalformedURLException exception) {
-            throw new RuntimeException(exception);
-        }
-        return host;
     }
 
     private Runnable getDownloadTask(
