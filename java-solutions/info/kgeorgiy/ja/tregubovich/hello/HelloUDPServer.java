@@ -54,6 +54,7 @@ public class HelloUDPServer implements NewHelloServer {
             while (!Thread.interrupted() && !socket.isClosed()) {
                 try {
                     socket.receive(requestPacket);
+                    // :NOTE: line length
                     final String requestMsg = new String(requestPacket.getData(), requestPacket.getOffset(), requestPacket.getLength(), StandardCharsets.UTF_8);
                     senders.submit(getSendTask(socket, format, requestMsg, requestPacket.getAddress(), requestPacket.getPort()));
                 } catch (final IOException e) {
@@ -83,6 +84,6 @@ public class HelloUDPServer implements NewHelloServer {
     public void close() {
         sockets.values().forEach(DatagramSocket::close);
         listeners.shutdownNow();
-        senders.shutdownNow();
+        senders.shutdownNow(); // :NOTE: since 1.19 senders.close();
     }
 }

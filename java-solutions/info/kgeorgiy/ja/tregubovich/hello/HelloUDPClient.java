@@ -5,12 +5,19 @@ import info.kgeorgiy.java.advanced.hello.HelloClient;
 import java.io.IOException;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class HelloUDPClient implements HelloClient {
     static void main(final String... args) {
+// :NOTE:
+        //        if (args != null || Arrays.stream(args).anyMatch(Objects::isNull)) {
+//
+//        }
+
         if (args.length != 5) {
             System.err.println("Usage: HelloUDPClient <host> <port> <prefix> <requests> <threads>");
         }
@@ -47,10 +54,13 @@ public class HelloUDPClient implements HelloClient {
     ) {
         return () -> {
             for (int requestNum = 1; requestNum <= requests; requestNum++) {
+                // :NOTE: отдельная функция createRequest
+                // :NOTE: StandardCharsets.UTF_8 в static final DEFAULT_CHARSET
                 final byte[] msg = (prefix + requestNum + "_" + threadNum).getBytes(StandardCharsets.UTF_8);
                 try (final DatagramSocket socket = new DatagramSocket()) {
-                    socket.setSoTimeout(200);
+                    socket.setSoTimeout(200); // :NOTE: вынетси в константу DEFAULT_SOCKET_TIMEOUT
                     final int buffSize = socket.getReceiveBufferSize();
+
                     final DatagramPacket request = new DatagramPacket(msg, msg.length, address, port);
                     final DatagramPacket response = new DatagramPacket(new byte[buffSize], buffSize);
 
@@ -84,6 +94,7 @@ public class HelloUDPClient implements HelloClient {
         }
     }
 
+    // :NOTE: naming - isValidResponse
     private static boolean validate(String responseMsg, final int requestNum, final int threadNum) {
         responseMsg = reverse(responseMsg);
         final String num1 = extractNumFromSuffix(responseMsg.chars()
