@@ -13,6 +13,8 @@ import java.util.concurrent.Executors;
 
 public class HelloUDPServer implements NewHelloServer {
 
+    public static final java.nio.charset.Charset CHARSET = StandardCharsets.UTF_8;
+
     static void main(final String... args) {
         if (args.length != 2) {
             System.err.println("Usage: HelloUDPServer <port> <threads>");
@@ -54,14 +56,17 @@ public class HelloUDPServer implements NewHelloServer {
             while (!Thread.interrupted() && !socket.isClosed()) {
                 try {
                     socket.receive(requestPacket);
-                    // :NOTE: line length
-                    final String requestMsg = new String(requestPacket.getData(), requestPacket.getOffset(), requestPacket.getLength(), StandardCharsets.UTF_8);
+                    final String requestMsg = getRequestMsg(requestPacket);
                     senders.submit(getSendTask(socket, format, requestMsg, requestPacket.getAddress(), requestPacket.getPort()));
                 } catch (final IOException e) {
                     System.err.println("Can't receive request: " + e.getMessage());
                 }
             }
         };
+    }
+
+    private static String getRequestMsg(final DatagramPacket requestPacket) {
+        return new String(requestPacket.getData(), requestPacket.getOffset(), requestPacket.getLength(), CHARSET);
     }
 
     private Runnable getSendTask(final DatagramSocket socket, final String format, final String msg, final InetAddress address, final int port) {
@@ -83,7 +88,7 @@ public class HelloUDPServer implements NewHelloServer {
     @Override
     public void close() {
         sockets.values().forEach(DatagramSocket::close);
-        listeners.shutdownNow();
-        senders.shutdownNow(); // :NOTE: since 1.19 senders.close();
+        listeners.close();
+        senders.close();
     }
 }

@@ -12,14 +12,14 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class HelloUDPClient implements HelloClient {
-    static void main(final String... args) {
-// :NOTE:
-        //        if (args != null || Arrays.stream(args).anyMatch(Objects::isNull)) {
-//
-//        }
 
-        if (args.length != 5) {
+    public static final java.nio.charset.Charset CHARSET = StandardCharsets.UTF_8;
+    public static final int SO_TIMEOUT = 200;
+
+    static void main(final String... args) {
+        if (args == null || Arrays.stream(args).anyMatch(Objects::isNull) || args.length != 5) {
             System.err.println("Usage: HelloUDPClient <host> <port> <prefix> <requests> <threads>");
+            return;
         }
         final String host = args[0];
         final int port = Integer.parseInt(args[1]);
@@ -54,11 +54,9 @@ public class HelloUDPClient implements HelloClient {
     ) {
         return () -> {
             for (int requestNum = 1; requestNum <= requests; requestNum++) {
-                // :NOTE: отдельная функция createRequest
-                // :NOTE: StandardCharsets.UTF_8 в static final DEFAULT_CHARSET
-                final byte[] msg = (prefix + requestNum + "_" + threadNum).getBytes(StandardCharsets.UTF_8);
+                final byte[] msg = createRequest(prefix, threadNum, requestNum);
                 try (final DatagramSocket socket = new DatagramSocket()) {
-                    socket.setSoTimeout(200); // :NOTE: вынетси в константу DEFAULT_SOCKET_TIMEOUT
+                    socket.setSoTimeout(SO_TIMEOUT);
                     final int buffSize = socket.getReceiveBufferSize();
 
                     final DatagramPacket request = new DatagramPacket(msg, msg.length, address, port);
@@ -70,6 +68,10 @@ public class HelloUDPClient implements HelloClient {
                 }
             }
         };
+    }
+
+    private static byte[] createRequest(final String prefix, final int threadNum, final int requestNum) {
+        return (prefix + requestNum + "_" + threadNum).getBytes(CHARSET);
     }
 
     private static void tryToSend(
@@ -85,7 +87,7 @@ public class HelloUDPClient implements HelloClient {
                 socket.receive(response);
 
                 final String responseMsg = new String(response.getData(), response.getOffset(), response.getLength(), StandardCharsets.UTF_8);
-                if (validate(responseMsg, requestNum, threadNum)) {
+                if (isValidResponse(responseMsg, requestNum, threadNum)) {
                     break;
                 }
             } catch (final IOException e) {
@@ -94,8 +96,7 @@ public class HelloUDPClient implements HelloClient {
         }
     }
 
-    // :NOTE: naming - isValidResponse
-    private static boolean validate(String responseMsg, final int requestNum, final int threadNum) {
+    private static boolean isValidResponse(String responseMsg, final int requestNum, final int threadNum) {
         responseMsg = reverse(responseMsg);
         final String num1 = extractNumFromSuffix(responseMsg.chars()
                 .dropWhile(c -> !Character.isDigit(c)));
