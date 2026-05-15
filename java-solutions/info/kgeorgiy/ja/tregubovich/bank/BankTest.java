@@ -113,7 +113,7 @@ public class BankTest {
     Person createRandomPerson() throws RemoteException {
         final String name = "Andrey";
         final String surname = "Tregubovich";
-        final int passportId = new Random().nextInt() % 100000;
+        final int passportId = Math.abs(new Random().nextInt() % 100000);
 
         final Person person = bank.createPerson(name, surname, passportId);
         Assertions.assertNotNull(person);
