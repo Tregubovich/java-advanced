@@ -1,31 +1,31 @@
-package info.kgeorgiy.ja.tregubovich.bank.people;
+package info.kgeorgiy.ja.tregubovich.bank.person;
 
 import info.kgeorgiy.ja.tregubovich.bank.account.Account;
-import info.kgeorgiy.ja.tregubovich.bank.account.RemoteAccount;
+import info.kgeorgiy.ja.tregubovich.bank.account.RemoteAccountImpl;
 
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
-public class RemotePerson extends AbstractPerson {
+public class RemotePersonImpl extends Person implements RemotePerson {
     private final int port;
-    private final ConcurrentMap<String, Account> accounts = new ConcurrentHashMap<>();
+    private final Map<String, RemoteAccountImpl> accounts = new ConcurrentHashMap<>();
 
-    public RemotePerson(final String name, final String surname, final int passportNumber, final int port) {
+    public RemotePersonImpl(final String name, final String surname, final int passportNumber, final int port) {
         super(name, surname, passportNumber);
         this.port = port;
     }
 
     @Override
     public Map<String, Account> getAccounts() {
-        return accounts;
+        return new HashMap<>(accounts);
     }
 
     @Override
     protected Account createAccount(final String id) throws RemoteException {
-        final Account account = new RemoteAccount(getFullAccountId(id));
+        final RemoteAccountImpl account = new RemoteAccountImpl(getFullAccountId(id));
         if (accounts.putIfAbsent(id, account) == null) {
             System.out.println("Creating account " + getFullAccountId(id));
             UnicastRemoteObject.exportObject(account, port);

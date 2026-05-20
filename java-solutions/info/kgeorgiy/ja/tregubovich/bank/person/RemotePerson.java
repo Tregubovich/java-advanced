@@ -1,4 +1,4 @@
-package info.kgeorgiy.ja.tregubovich.bank.people;
+package info.kgeorgiy.ja.tregubovich.bank.person;
 
 import info.kgeorgiy.ja.tregubovich.bank.account.Account;
 
@@ -6,7 +6,7 @@ import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.util.Map;
 
-public interface Person extends Remote {
+public interface RemotePerson extends Remote {
     /**
      * Returns person's name
      */

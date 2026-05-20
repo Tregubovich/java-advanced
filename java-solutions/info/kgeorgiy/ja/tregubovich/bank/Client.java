@@ -1,8 +1,8 @@
 package info.kgeorgiy.ja.tregubovich.bank;
 
-import info.kgeorgiy.ja.tregubovich.bank.account.Account;
 import info.kgeorgiy.ja.tregubovich.bank.bank.Bank;
-import info.kgeorgiy.ja.tregubovich.bank.people.Person;
+import info.kgeorgiy.ja.tregubovich.bank.person.InsufficientFundsException;
+import info.kgeorgiy.ja.tregubovich.bank.person.Person;
 
 import java.net.MalformedURLException;
 import java.rmi.Naming;
@@ -52,6 +52,10 @@ public final class Client {
 
         System.out.println("Balance: " + person.getBalance(accountId));
         System.out.println("Adding money");
-        person.deposit(accountId, amount);
+        try {
+            person.deposit(accountId, amount);
+        } catch (final InsufficientFundsException _) {
+            System.out.println("Insufficient funds");
+        }
     }
 }
