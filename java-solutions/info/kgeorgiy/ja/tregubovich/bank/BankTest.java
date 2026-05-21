@@ -1,12 +1,14 @@
 package info.kgeorgiy.ja.tregubovich.bank;
 
 import info.kgeorgiy.ja.tregubovich.bank.account.LocalAccount;
+import info.kgeorgiy.ja.tregubovich.bank.account.RemoteAccount;
 import info.kgeorgiy.ja.tregubovich.bank.bank.Bank;
 import info.kgeorgiy.ja.tregubovich.bank.bank.PersonAlreadyExistException;
 import info.kgeorgiy.ja.tregubovich.bank.bank.RemoteBank;
 import info.kgeorgiy.ja.tregubovich.bank.person.InsufficientFundsException;
 import info.kgeorgiy.ja.tregubovich.bank.person.LocalPerson;
 import info.kgeorgiy.ja.tregubovich.bank.person.Person;
+import info.kgeorgiy.ja.tregubovich.bank.person.RemotePerson;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -71,15 +73,27 @@ public class BankTest {
             Assertions.fail("Local person shouldn't implement Remote");
         } catch (ClassCastException _) {
         }
+
+        try {
+            Remote _ = (Remote) new RemoteAccount("2");
+        } catch (ClassCastException _) {
+            Assertions.fail("Remote account should implement Remote");
+        }
+
+        try {
+            Remote _ = (Remote) new RemotePerson("Nikita", "Glazunov", 2, BANK_PORT);
+        } catch (ClassCastException _) {
+            Assertions.fail("Remote account should implement Remote");
+        }
     }
 
     @Test
-    void test20_createPerson() throws RemoteException {
+    void test20_createPerson() throws RemoteException, PersonAlreadyExistException {
         createRandomPerson();
     }
 
     @Test
-    void test21_createPersonWithSameName() throws RemoteException {
+    void test21_createPersonWithSameName() throws RemoteException, PersonAlreadyExistException {
         createPerson("Andrey", "Tregubovich", 1);
         createPerson("Andrey", "Solonenko", 2);
         createPerson("Ivan", "Tregubovich", 3);
@@ -87,7 +101,7 @@ public class BankTest {
     }
 
     @Test
-    void test22_createPersonWithSameId() throws RemoteException {
+    void test22_createPersonWithSameID() throws RemoteException, PersonAlreadyExistException {
         createPerson("Andrey", "Tregubovich", 1);
         createPerson("Andrey", "Tregubovich", 1);
         try {
@@ -100,16 +114,16 @@ public class BankTest {
 
 
     @Test
-    void test30_getRemotePerson() throws RemoteException {
+    void test30_getRemotePerson() throws RemoteException, PersonAlreadyExistException {
         final Person expectedPerson = createRandomPerson();
-        final Person actualPerson = bank.getPerson(expectedPerson.getPassportId(), false);
+        final Person actualPerson = bank.getPerson(expectedPerson.getPassportID(), false);
         Assertions.assertEquals(expectedPerson, actualPerson);
     }
 
     @Test
-    void test31_getLocalPerson() throws RemoteException {
+    void test31_getLocalPerson() throws RemoteException, PersonAlreadyExistException {
         final Person expectedPerson = createRandomPerson();
-        final Person actualPerson = bank.getPerson(expectedPerson.getPassportId(), true);
+        final Person actualPerson = bank.getPerson(expectedPerson.getPassportID(), true);
         Assertions.assertNotNull(actualPerson);
 
         try {
@@ -120,11 +134,11 @@ public class BankTest {
 
         Assertions.assertEquals(expectedPerson.getName(), actualPerson.getName());
         Assertions.assertEquals(expectedPerson.getSurname(), actualPerson.getSurname());
-        Assertions.assertEquals(expectedPerson.getPassportId(), actualPerson.getPassportId());
+        Assertions.assertEquals(expectedPerson.getPassportID(), actualPerson.getPassportID());
     }
 
     @Test
-    void test40_deposit() throws RemoteException {
+    void test40_deposit() throws RemoteException, PersonAlreadyExistException {
         final Person person = createRandomPerson();
         deposit(person, "1", 100);
         Assertions.assertEquals(100, person.getBalance("1"));
@@ -150,9 +164,9 @@ public class BankTest {
     }
 
     @Test
-    void test50_changeRemotePerson() throws RemoteException {
+    void test50_changeRemotePerson() throws RemoteException, PersonAlreadyExistException {
         final Person person = createRandomPerson();
-        final Person anotherPerson = bank.getPerson(person.getPassportId(), false);
+        final Person anotherPerson = bank.getPerson(person.getPassportID(), false);
 
         deposit(person, "1", 100);
         deposit(person, "2", 300);
@@ -164,19 +178,19 @@ public class BankTest {
     }
 
     @Test
-    void test51_changeLocalPerson() throws RemoteException {
+    void test51_changeLocalPerson() throws RemoteException, PersonAlreadyExistException {
         final Person remotePerson = createRandomPerson();
-        final Person localPerson = bank.getPerson(remotePerson.getPassportId(), true);
+        final Person localPerson = bank.getPerson(remotePerson.getPassportID(), true);
 
         Assertions.assertEquals(remotePerson.getName(), localPerson.getName());
         Assertions.assertEquals(remotePerson.getSurname(), localPerson.getSurname());
-        Assertions.assertEquals(remotePerson.getPassportId(), localPerson.getPassportId());
+        Assertions.assertEquals(remotePerson.getPassportID(), localPerson.getPassportID());
         Assertions.assertEquals(remotePerson.getAccounts(), localPerson.getAccounts());
 
         deposit(remotePerson, "1", 100);
         Assertions.assertEquals(0, localPerson.getBalance("1"));
 
-        final Person anotherPerson = bank.getPerson(remotePerson.getPassportId(), true);
+        final Person anotherPerson = bank.getPerson(remotePerson.getPassportID(), true);
         deposit(localPerson, "2", 300);
         Assertions.assertEquals(300, localPerson.getBalance("2"));
         Assertions.assertEquals(100, remotePerson.getBalance("1"));
@@ -184,7 +198,7 @@ public class BankTest {
     }
 
     @Test
-    void test60_parallelDepositDifferentAccounts() throws RemoteException {
+    void test60_parallelDepositDifferentAccounts() throws RemoteException, PersonAlreadyExistException {
         final int TESTS = 50;
         final int THREADS = 5;
 
@@ -209,7 +223,7 @@ public class BankTest {
     }
 
     @Test
-    void test61_parallelDepositSameAccounts() throws RemoteException {
+    void test61_parallelDepositSameAccounts() throws RemoteException, PersonAlreadyExistException {
         final int TESTS = 50;
         final int THREADS = 5;
 
@@ -267,23 +281,23 @@ public class BankTest {
         }
     }
 
-    Person createRandomPerson() throws RemoteException {
+    Person createRandomPerson() throws RemoteException, PersonAlreadyExistException {
         final Random rnd = new Random();
 
         final String name = NAMES.get(rnd.nextInt(NAMES.size()));
         final String surname = SURNAMES.get(rnd.nextInt(SURNAMES.size()));
-        final int passportId = Math.abs(rnd.nextInt() % 100000);
+        final int passportID = Math.abs(rnd.nextInt() % 100000);
 
-        return createPerson(name, surname, passportId);
+        return createPerson(name, surname, passportID);
     }
 
-    private static Person createPerson(final String name, final String surname, final int passportId) throws RemoteException {
-        final Person person = bank.createPerson(name, surname, passportId);
+    private static Person createPerson(final String name, final String surname, final int passportID) throws RemoteException, PersonAlreadyExistException {
+        final Person person = bank.createPerson(name, surname, passportID);
         Assertions.assertNotNull(person);
 
         Assertions.assertEquals(name, person.getName());
         Assertions.assertEquals(surname, person.getSurname());
-        Assertions.assertEquals(passportId, person.getPassportId());
+        Assertions.assertEquals(passportID, person.getPassportID());
 
         return person;
     }

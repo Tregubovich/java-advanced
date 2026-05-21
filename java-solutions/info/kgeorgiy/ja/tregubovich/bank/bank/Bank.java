@@ -11,17 +11,17 @@ public interface Bank extends Remote {
      *
      * @param name           person's name
      * @param surname        person's surname
-     * @param passportId person's passport id
+     * @param passportID person's passport id
      * @return created or existing person.
      */
-    Person createPerson(String name, String surname, int passportId) throws RemoteException, PersonAlreadyExistException;
+    Person createPerson(String name, String surname, int passportID) throws RemoteException, PersonAlreadyExistException;
 
     /**
      * Returns person by passport id.
      *
-     * @param passportId person's passport id
+     * @param passportID person's passport id
      * @param isLocal        to look up for a local person or not
      * @return person with specified passport id or {@code null} if such account does not exist.
      */
-    Person getPerson(int passportId, boolean isLocal) throws RemoteException;
+    Person getPerson(int passportID, boolean isLocal) throws RemoteException;
 }

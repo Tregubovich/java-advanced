@@ -1,11 +1,13 @@
 package info.kgeorgiy.ja.tregubovich.bank.account;
 
-public class LocalAccount extends Account {
+import java.rmi.RemoteException;
+
+public class LocalAccount extends AbstractAccount {
     public LocalAccount(final String id) {
         super(id);
     }
 
-    public LocalAccount(final Account account) {
-        super(account.getId(), account.getBalance());
+    public LocalAccount(final Account account) throws RemoteException {
+        super(account.getID(), account.getBalance());
     }
 }

@@ -1,7 +1,9 @@
 package info.kgeorgiy.ja.tregubovich.bank;
 
 import info.kgeorgiy.ja.tregubovich.bank.bank.Bank;
+import info.kgeorgiy.ja.tregubovich.bank.bank.PersonAlreadyExistException;
 import info.kgeorgiy.ja.tregubovich.bank.person.InsufficientFundsException;
+import info.kgeorgiy.ja.tregubovich.bank.person.AbstractPerson;
 import info.kgeorgiy.ja.tregubovich.bank.person.Person;
 
 import java.net.MalformedURLException;
@@ -12,12 +14,15 @@ import java.util.Arrays;
 import java.util.Objects;
 
 public final class Client {
-    /** Utility class. */
-    private Client() {}
+    /**
+     * Utility class.
+     */
+    private Client() {
+    }
 
     public static void main(final String... args) throws RemoteException {
         if (args == null || Arrays.stream(args).anyMatch(Objects::isNull) || args.length != 5) {
-            System.err.println("Usage: Client <name> <surname> <passportId> <accountId> <amount>");
+            System.err.println("Usage: Client <name> <surname> <passportID> <accountID> <amount>");
             return;
         }
 
@@ -34,26 +39,22 @@ public final class Client {
 
         final String name = args[0];
         final String surname = args[1];
-        final int passportId = Integer.parseInt(args[2]);
-        final String accountId = args[3];
+        final int passportID = Integer.parseInt(args[2]);
+        final String accountID = args[3];
         final int amount = Integer.parseInt(args[4]);
 
-        Person person = bank.getPerson(passportId, false);
-        if (person == null) {
-            System.out.println("Creating person");
-            person = bank.createPerson(name, surname, passportId);
-        } else {
-            if (!person.getName().equals(name) || !person.getSurname().equals(surname)) {
-                System.out.println("Account with passport id " + passportId + " does not match");
-                System.out.println("Expected " + person.getName() + " " + person.getSurname() + ", got " + name + " " + surname);
-                return;
-            }
+        final Person person;
+        try {
+            person = bank.createPerson(name, surname, passportID);
+        } catch (PersonAlreadyExistException _) {
+            System.out.println("Person already exist");
+            return;
         }
 
-        System.out.println("Balance: " + person.getBalance(accountId));
+        System.out.println("Balance: " + person.getBalance(accountID));
         System.out.println("Adding money");
         try {
-            person.deposit(accountId, amount);
+            person.deposit(accountID, amount);
         } catch (final InsufficientFundsException _) {
             System.out.println("Insufficient funds");
         }
