@@ -1,29 +1,18 @@
 package info.kgeorgiy.ja.tregubovich.hello;
 
-import info.kgeorgiy.java.advanced.hello.HelloServer;
-import info.kgeorgiy.java.advanced.hello.NewHelloServer;
-
 import java.io.IOException;
-import java.net.*;
-import java.nio.charset.StandardCharsets;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.SocketException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class HelloUDPServer implements NewHelloServer {
-
-    public static final java.nio.charset.Charset CHARSET = StandardCharsets.UTF_8;
-
+public class HelloUDPServer extends AbstractHelloUDPServer {
     static void main(final String... args) {
-        if (args.length != 2) {
-            System.err.println("Usage: HelloUDPServer <port> <threads>");
-        }
-        final int port = Integer.parseInt(args[0]);
-        final int threads = Integer.parseInt(args[1]);
-        try (final HelloServer server = new HelloUDPServer()) {
-            server.start(port, threads);
-        }
+        main(HelloUDPServer.class, args);
     }
 
     private final Map<Integer, DatagramSocket> sockets = new ConcurrentHashMap<>();
@@ -65,10 +54,6 @@ public class HelloUDPServer implements NewHelloServer {
         };
     }
 
-    private static String getRequestMsg(final DatagramPacket requestPacket) {
-        return new String(requestPacket.getData(), requestPacket.getOffset(), requestPacket.getLength(), CHARSET);
-    }
-
     private Runnable getSendTask(final DatagramSocket socket, final String format, final String msg, final InetAddress address, final int port) {
         return () -> {
             final DatagramPacket responsePacket = getResponsePacket(format, msg, address, port);
@@ -81,7 +66,7 @@ public class HelloUDPServer implements NewHelloServer {
     }
 
     private static DatagramPacket getResponsePacket(final String format, final String msg, final InetAddress address, final int port) {
-        final byte[] response = format.replace("%%", msg).getBytes();
+        final byte[] response = getResponse(format, msg);
         return new DatagramPacket(response, response.length, address, port);
     }
 
