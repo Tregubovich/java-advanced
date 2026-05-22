@@ -1,14 +1,12 @@
 package info.kgeorgiy.ja.tregubovich.bank.account;
 
-import java.rmi.*;
-
 public interface Account {
     /** Returns account identifier. */
-    String getID() throws RemoteException;
+    String getID();
 
     /** Returns amount of money in the account. */
-    int getBalance() throws RemoteException;
+    int getBalance();
 
     /** Sets amount of money in the account. */
-    void setBalance(int amount) throws NegativeBalanceException, RemoteException;
+    void setBalance(int amount) throws NegativeBalanceException;
 }

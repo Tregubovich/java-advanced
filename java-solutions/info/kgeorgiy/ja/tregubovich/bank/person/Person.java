@@ -1,34 +1,31 @@
 package info.kgeorgiy.ja.tregubovich.bank.person;
 
-import info.kgeorgiy.ja.tregubovich.bank.account.AbstractAccount;
 import info.kgeorgiy.ja.tregubovich.bank.account.Account;
 
-import java.rmi.Remote;
-import java.rmi.RemoteException;
 import java.util.Map;
 
 public interface Person {
     /**
      * Returns person's name
      */
-    String getName() throws RemoteException;
+    String getName();
 
 
     /**
      * Returns person's surname
      */
-    String getSurname() throws RemoteException;
+    String getSurname();
 
 
     /**
      * Returns person's passport id
      */
-    int getPassportID() throws RemoteException;
+    int getPassportID();
 
     /**
      * Returns person's accounts
      */
-    Map<String, Account> getAccounts() throws RemoteException;
+    Map<String, Account> getAccounts();
 
     /**
      * Adds or removes money from account with specified identifier.
@@ -38,7 +35,7 @@ public interface Person {
      * @param id     account id
      * @throws InsufficientFundsException if there are not enough funds in the account
      */
-    void deposit(String id, int amount) throws InsufficientFundsException, RemoteException;
+    void deposit(String id, int amount) throws InsufficientFundsException;
 
     /**
      * Returns balance of the account with specified identifier.
@@ -46,5 +43,5 @@ public interface Person {
      *
      * @return amount of funds on account
      */
-    int getBalance(String id) throws RemoteException;
+    int getBalance(String id);
 }

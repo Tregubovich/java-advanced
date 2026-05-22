@@ -1,6 +1,6 @@
 package info.kgeorgiy.ja.tregubovich.bank.account;
 
-public abstract class AbstractAccount implements Account{
+public abstract class AbstractAccount implements Account {
     private final String id;
     private int balance;
 
@@ -27,7 +27,7 @@ public abstract class AbstractAccount implements Account{
     @Override
     public synchronized void setBalance(final int balance) throws NegativeBalanceException {
         System.out.println("Setting amount of money for account " + id);
-        if  (balance < 0) {
+        if (balance < 0) {
             throw new NegativeBalanceException("Negative amount");
         }
         this.balance = balance;

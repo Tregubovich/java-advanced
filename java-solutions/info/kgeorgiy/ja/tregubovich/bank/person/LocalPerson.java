@@ -1,6 +1,5 @@
 package info.kgeorgiy.ja.tregubovich.bank.person;
 
-import info.kgeorgiy.ja.tregubovich.bank.account.AbstractAccount;
 import info.kgeorgiy.ja.tregubovich.bank.account.Account;
 import info.kgeorgiy.ja.tregubovich.bank.account.LocalAccount;
 
@@ -18,16 +17,16 @@ public class LocalPerson extends AbstractPerson implements Serializable {
 
     public LocalPerson(final String name, final String surname, final int passportID, final Map<String, Account> accounts) {
         super(name, surname, passportID);
-        accounts.values().forEach(account -> {
+        accounts.forEach((key, value) -> {
             try {
-                this.accounts.put(account.getID().split(":")[1], new LocalAccount(account));
-            } catch (RemoteException e) {
+                this.accounts.put(key, new LocalAccount(value));
+            } catch (final RemoteException e) {
                 throw new RuntimeException(e);
             }
         });
     }
 
-    public LocalPerson(final AbstractPerson person) {
+    public LocalPerson(final Person person) {
         this(person.getName(), person.getSurname(), person.getPassportID(), person.getAccounts());
     }
 

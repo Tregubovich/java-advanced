@@ -1,14 +1,11 @@
 package info.kgeorgiy.ja.tregubovich.bank;
 
 import info.kgeorgiy.ja.tregubovich.bank.account.LocalAccount;
-import info.kgeorgiy.ja.tregubovich.bank.account.RemoteAccount;
+import info.kgeorgiy.ja.tregubovich.bank.account.RemoteAccountImpl;
 import info.kgeorgiy.ja.tregubovich.bank.bank.Bank;
 import info.kgeorgiy.ja.tregubovich.bank.bank.PersonAlreadyExistException;
 import info.kgeorgiy.ja.tregubovich.bank.bank.RemoteBank;
-import info.kgeorgiy.ja.tregubovich.bank.person.InsufficientFundsException;
-import info.kgeorgiy.ja.tregubovich.bank.person.LocalPerson;
-import info.kgeorgiy.ja.tregubovich.bank.person.Person;
-import info.kgeorgiy.ja.tregubovich.bank.person.RemotePerson;
+import info.kgeorgiy.ja.tregubovich.bank.person.*;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -75,13 +72,13 @@ public class BankTest {
         }
 
         try {
-            Remote _ = (Remote) new RemoteAccount("2");
+            Remote _ = (Remote) new RemoteAccountImpl("2");
         } catch (ClassCastException _) {
             Assertions.fail("Remote account should implement Remote");
         }
 
         try {
-            Remote _ = (Remote) new RemotePerson("Nikita", "Glazunov", 2, BANK_PORT);
+            Remote _ = (Remote) new RemotePersonImpl("Nikita", "Glazunov", 2, BANK_PORT);
         } catch (ClassCastException _) {
             Assertions.fail("Remote account should implement Remote");
         }
@@ -261,7 +258,7 @@ public class BankTest {
                 es.submit(() -> {
                     try {
                         TimeUnit.MILLISECONDS.sleep(50);
-                        final Person person = bank.createPerson(NAME, SURNAME, PASSPORT_ID);
+                        final Person person = (Person) bank.createPerson(NAME, SURNAME, PASSPORT_ID);
                         deposit(person, "1", 1);
                         deposit(person, "2", 2);
                         deposit(person, "3", 3);
@@ -292,7 +289,7 @@ public class BankTest {
     }
 
     private static Person createPerson(final String name, final String surname, final int passportID) throws RemoteException, PersonAlreadyExistException {
-        final Person person = bank.createPerson(name, surname, passportID);
+        final Person person = (Person) bank.createPerson(name, surname, passportID);
         Assertions.assertNotNull(person);
 
         Assertions.assertEquals(name, person.getName());

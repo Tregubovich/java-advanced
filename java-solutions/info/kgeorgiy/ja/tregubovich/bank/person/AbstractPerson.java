@@ -1,13 +1,12 @@
 package info.kgeorgiy.ja.tregubovich.bank.person;
 
-import info.kgeorgiy.ja.tregubovich.bank.account.AbstractAccount;
 import info.kgeorgiy.ja.tregubovich.bank.account.Account;
 import info.kgeorgiy.ja.tregubovich.bank.account.NegativeBalanceException;
 
 import java.rmi.RemoteException;
 import java.util.Map;
 
-public abstract class AbstractPerson implements Person{
+public abstract class AbstractPerson implements Person {
     private final String name;
     private final String surname;
     private final int passportID;
@@ -44,9 +43,14 @@ public abstract class AbstractPerson implements Person{
     public abstract Map<String, Account> getAccounts();
 
     @Override
-    public synchronized void deposit(final String id, final int amount) throws InsufficientFundsException, RemoteException {
+    public synchronized void deposit(final String id, final int amount) throws InsufficientFundsException {
         System.out.println("Deposit " + getFullAccountID(id) + " " + (amount > 0 ? "+" : "") + amount);
-        final Account account = createAccount(id);
+        final Account account;
+        try {
+            account = createAccount(id);
+        } catch (final RemoteException e) {
+            throw new RuntimeException(e);
+        }
         final int funds = getBalance(id);
         try {
             account.setBalance(funds + amount);
@@ -57,8 +61,13 @@ public abstract class AbstractPerson implements Person{
     }
 
     @Override
-    public int getBalance(final String id) throws RemoteException {
-        final Account account = createAccount(id);
+    public int getBalance(final String id) {
+        final Account account;
+        try {
+            account = createAccount(id);
+        } catch (final RemoteException e) {
+            throw new RuntimeException(e);
+        }
         final int funds = account.getBalance();
         System.out.println("Balance of " + getFullAccountID(id) + ": " + funds);
         return funds;

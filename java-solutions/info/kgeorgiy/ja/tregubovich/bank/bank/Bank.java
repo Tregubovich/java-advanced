@@ -1,6 +1,7 @@
 package info.kgeorgiy.ja.tregubovich.bank.bank;
 
 import info.kgeorgiy.ja.tregubovich.bank.person.Person;
+import info.kgeorgiy.ja.tregubovich.bank.person.RemotePerson;
 
 import java.rmi.Remote;
 import java.rmi.RemoteException;
@@ -14,7 +15,7 @@ public interface Bank extends Remote {
      * @param passportID person's passport id
      * @return created or existing person.
      */
-    Person createPerson(String name, String surname, int passportID) throws RemoteException, PersonAlreadyExistException;
+    RemotePerson createPerson(String name, String surname, int passportID) throws RemoteException, PersonAlreadyExistException;
 
     /**
      * Returns person by passport id.

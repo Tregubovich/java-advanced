@@ -1,39 +1,49 @@
 package info.kgeorgiy.ja.tregubovich.bank.person;
 
-import info.kgeorgiy.ja.tregubovich.bank.account.AbstractAccount;
 import info.kgeorgiy.ja.tregubovich.bank.account.Account;
-import info.kgeorgiy.ja.tregubovich.bank.account.RemoteAccount;
 
 import java.rmi.Remote;
 import java.rmi.RemoteException;
-import java.rmi.server.UnicastRemoteObject;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
-public class RemotePerson extends AbstractPerson implements Remote {
-    private final int port;
-    private final Map<String, Account> accounts = new ConcurrentHashMap<>();
+public interface RemotePerson extends Remote {
+    /**
+     * Returns person's name
+     */
+    String getName() throws RemoteException;
 
-    public RemotePerson(final String name, final String surname, final int passportNumber, final int port) {
-        super(name, surname, passportNumber);
-        this.port = port;
-    }
 
-    @Override
-    public Map<String, Account> getAccounts() {
-        return accounts;
-    }
+    /**
+     * Returns person's surname
+     */
+    String getSurname() throws RemoteException;
 
-    @Override
-    protected Account createAccount(final String id) throws RemoteException {
-        if (accounts.containsKey(id)) {
-            return accounts.get(id);
-        }
-        System.out.println("Creating account " + getFullAccountID(id));
-        final RemoteAccount account = new RemoteAccount(getFullAccountID(id));
-        accounts.put(id, account);
-        UnicastRemoteObject.exportObject(account, port);
-        return accounts.get(id);
-    }
+
+    /**
+     * Returns person's passport id
+     */
+    int getPassportID() throws RemoteException;
+
+    /**
+     * Returns person's accounts
+     */
+    Map<String, Account> getAccounts() throws RemoteException;
+
+    /**
+     * Adds or removes money from account with specified identifier.
+     * If account doesn't exist creates new with empty balance.
+     *
+     * @param amount amount of money
+     * @param id     account id
+     * @throws InsufficientFundsException if there are not enough funds in the account
+     */
+    void deposit(String id, int amount) throws InsufficientFundsException, RemoteException;
+
+    /**
+     * Returns balance of the account with specified identifier.
+     * If account doesn't exist creates new with empty balance.
+     *
+     * @return amount of funds on account
+     */
+    int getBalance(String id) throws RemoteException;
 }

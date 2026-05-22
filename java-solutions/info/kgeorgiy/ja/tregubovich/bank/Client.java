@@ -3,8 +3,7 @@ package info.kgeorgiy.ja.tregubovich.bank;
 import info.kgeorgiy.ja.tregubovich.bank.bank.Bank;
 import info.kgeorgiy.ja.tregubovich.bank.bank.PersonAlreadyExistException;
 import info.kgeorgiy.ja.tregubovich.bank.person.InsufficientFundsException;
-import info.kgeorgiy.ja.tregubovich.bank.person.AbstractPerson;
-import info.kgeorgiy.ja.tregubovich.bank.person.Person;
+import info.kgeorgiy.ja.tregubovich.bank.person.RemotePerson;
 
 import java.net.MalformedURLException;
 import java.rmi.Naming;
@@ -43,7 +42,7 @@ public final class Client {
         final String accountID = args[3];
         final int amount = Integer.parseInt(args[4]);
 
-        final Person person;
+        final RemotePerson person;
         try {
             person = bank.createPerson(name, surname, passportID);
         } catch (PersonAlreadyExistException _) {
@@ -51,8 +50,6 @@ public final class Client {
             return;
         }
 
-        System.out.println("Balance: " + person.getBalance(accountID));
-        System.out.println("Adding money");
         try {
             person.deposit(accountID, amount);
         } catch (final InsufficientFundsException _) {
