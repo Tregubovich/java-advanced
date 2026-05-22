@@ -57,7 +57,6 @@ public class HelloUDPNonblockingClient extends AbstractHelloUDPClient {
                     if (key.isReadable()) {
                         channel.receive(ctx.buffer.clear());
                         final String response = CHARSET.decode(ctx.buffer.flip()).toString();
-                        System.err.println(response);
                         if (isValidResponse(response, ctx.requestNum, ctx.threadNum)) {
                             ctx.requestNum++;
                         }
@@ -66,10 +65,8 @@ public class HelloUDPNonblockingClient extends AbstractHelloUDPClient {
                         } else {
                             key.interestOps(SelectionKey.OP_WRITE);
                         }
-                    }
-                    if (key.isWritable()) {
+                    } else if (key.isWritable()) {
                         channel.send(ByteBuffer.wrap(createRequest(prefix, ctx.threadNum, ctx.requestNum)), address);
-                        System.err.println("Sent " + ctx.requestNum + ":" + ctx.threadNum);
                         key.interestOps(SelectionKey.OP_READ);
                     }
                 }
