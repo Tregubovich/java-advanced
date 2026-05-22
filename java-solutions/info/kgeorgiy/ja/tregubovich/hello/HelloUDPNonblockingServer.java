@@ -41,6 +41,7 @@ public class HelloUDPNonblockingServer extends AbstractHelloUDPServer {
                 channel.register(selector, SelectionKey.OP_READ, new Context(channel.socket().getReceiveBufferSize(), entry.getKey()));
             }
 
+            // :NOTE: singleThreadExecutor
             new Thread(() -> {
                 while (!Thread.interrupted()) {
                     try {
@@ -66,7 +67,7 @@ public class HelloUDPNonblockingServer extends AbstractHelloUDPServer {
                                 final String request = CHARSET.decode(ctx.buffer.flip()).toString();
                                 senders.submit(() -> {
                                     ctx.responses.add(new Response(getResponse(ports.get(ctx.port), request), address));
-                                    key.interestOps(SelectionKey.OP_WRITE | SelectionKey.OP_READ);
+                                    key.interestOpsOr(SelectionKey.OP_WRITE);
                                     selector.wakeup();
                                 });
                             }
@@ -82,6 +83,7 @@ public class HelloUDPNonblockingServer extends AbstractHelloUDPServer {
                         }
                     } catch (final IOException e) {
                         throw new UncheckedIOException(e);
+                        // :NOTE: Логи или что-то
                     }
                 }
             }).start();

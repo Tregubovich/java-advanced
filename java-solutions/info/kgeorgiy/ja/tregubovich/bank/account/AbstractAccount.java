@@ -2,7 +2,7 @@ package info.kgeorgiy.ja.tregubovich.bank.account;
 
 public abstract class AbstractAccount implements Account {
     private final String id;
-    private int balance;
+    private int balance; // :NOTE: bigint
 
     protected AbstractAccount(final String id) {
         this(id, 0);

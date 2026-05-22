@@ -25,7 +25,8 @@ public class HelloUDPNonblockingClient extends AbstractHelloUDPClient {
         try {
             address = new InetSocketAddress(InetAddress.getByName(host), port);
         } catch (final UnknownHostException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException(e); // :NOTE: с комментариев
+           /// :NOTE: IllegalArgumentE
         }
 
         final List<DatagramChannel> channels = new ArrayList<>();
@@ -79,7 +80,7 @@ public class HelloUDPNonblockingClient extends AbstractHelloUDPClient {
                     throw new UncheckedIOException(e);
                 }
             }
-        } catch (final IOException e) {
+        } catch (final IOException | UncheckedIOException e) {
             System.err.println("Can't open selector: " + e.getMessage());
         }
     }
