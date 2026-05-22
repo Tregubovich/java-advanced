@@ -80,7 +80,7 @@ public class BankTest {
         try {
             Remote _ = (Remote) new RemotePersonImpl("Nikita", "Glazunov", 2, BANK_PORT);
         } catch (ClassCastException _) {
-            Assertions.fail("Remote account should implement Remote");
+            Assertions.fail("Remote person should implement Remote");
         }
     }
 
