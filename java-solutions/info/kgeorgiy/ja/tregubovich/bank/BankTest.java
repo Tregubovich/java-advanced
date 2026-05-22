@@ -205,7 +205,8 @@ public class BankTest {
                 final int num = i;
                 es.submit(() -> {
                     try {
-                        TimeUnit.MILLISECONDS.sleep(50);
+//                        TimeUnit.MILLISECONDS.sleep(50);
+                        // :NOTE: latch
                         deposit(person, String.valueOf(num), num);
                     } catch (Exception _) {
                         Assertions.fail("Unexpected exception");
