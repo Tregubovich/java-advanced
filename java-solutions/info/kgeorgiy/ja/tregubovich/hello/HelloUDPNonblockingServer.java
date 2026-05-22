@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.*;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedSelectorException;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -43,7 +44,12 @@ public class HelloUDPNonblockingServer extends AbstractHelloUDPServer {
             new Thread(() -> {
                 while (!Thread.interrupted()) {
                     try {
-                        final int selected = selector.select(TIMEOUT);
+                        final int selected;
+                        try {
+                            selected = selector.select(TIMEOUT);
+                        } catch (final ClosedSelectorException e) {
+                            break;
+                        }
 
                         if (selected == 0) continue;
 
