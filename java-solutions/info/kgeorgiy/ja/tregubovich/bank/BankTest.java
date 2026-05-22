@@ -278,7 +278,7 @@ public class BankTest {
         }
     }
 
-    Person createRandomPerson() throws RemoteException, PersonAlreadyExistException {
+    private Person createRandomPerson() throws RemoteException, PersonAlreadyExistException {
         final Random rnd = new Random();
 
         final String name = NAMES.get(rnd.nextInt(NAMES.size()));
