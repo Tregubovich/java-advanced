@@ -179,15 +179,12 @@ public class StudentDB implements AdvancedQuery {
     }
 
     private <T> List<T> getByIndices(final Collection<Student> students, final int[] ids, final Function<Student, T> extractor) {
+        final Map<Integer, Student> map = students.stream()
+                .collect(Collectors.toMap(Student::id, Function.identity()));
+
         return Arrays
                 .stream(ids)
-                .mapToObj(id -> extractor.apply(
-                        students
-                                .stream()
-                                .filter(s -> s.id() == id)
-                                .findFirst()
-                                .orElse(null)
-                ))
+                .mapToObj(id -> extractor.apply(map.get(id)))
                 .toList();
     }
 }
