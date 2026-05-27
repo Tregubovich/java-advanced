@@ -25,8 +25,7 @@ public class HelloUDPNonblockingClient extends AbstractHelloUDPClient {
         try {
             address = new InetSocketAddress(InetAddress.getByName(host), port);
         } catch (final UnknownHostException e) {
-            throw new RuntimeException(e); // :NOTE: с комментариев
-           /// :NOTE: IllegalArgumentE
+            throw new IllegalArgumentException("Unknown host: " + e.getMessage());
         }
 
         final List<DatagramChannel> channels = new ArrayList<>();

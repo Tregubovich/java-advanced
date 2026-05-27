@@ -41,8 +41,7 @@ public class HelloUDPNonblockingServer extends AbstractHelloUDPServer {
                 channel.register(selector, SelectionKey.OP_READ, new Context(channel.socket().getReceiveBufferSize(), entry.getKey()));
             }
 
-            // :NOTE: singleThreadExecutor
-            new Thread(() -> {
+            Executors.newSingleThreadExecutor().execute(() -> {
                 while (!Thread.interrupted()) {
                     try {
                         final int selected;
@@ -82,12 +81,12 @@ public class HelloUDPNonblockingServer extends AbstractHelloUDPServer {
                             }
                         }
                     } catch (final IOException e) {
+                        System.err.println("Caught IOException: " + e.getMessage());
                         throw new UncheckedIOException(e);
-                        // :NOTE: Логи или что-то
                     }
                 }
-            }).start();
-        } catch (final IOException e) {
+            });
+        } catch (final IOException | UncheckedIOException e) {
             System.err.println("Can't open selector: " + e.getMessage());
         }
     }
