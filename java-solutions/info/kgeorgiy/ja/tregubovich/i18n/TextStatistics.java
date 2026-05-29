@@ -1,14 +1,12 @@
 package info.kgeorgiy.ja.tregubovich.i18n;
 
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.Writer;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.text.*;
 import java.util.*;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class TextStatistics {
     public static void main(final String[] args) {
@@ -36,8 +34,8 @@ public class TextStatistics {
 
     @SuppressWarnings("unchecked")
     private static void summarizeText(final String fileName, final Locale inputLocale, final Map<StatisticType, Summary<?>> statistic) {
-        try (final FileReader reader = new FileReader(fileName, StandardCharsets.UTF_8)) {
-            final String inputText = reader.readAllAsString();
+        try (final BufferedReader reader = new BufferedReader(new FileReader(fileName, StandardCharsets.UTF_8))) {
+            final String inputText = reader.lines().collect(Collectors.joining("\n"));
 
             summaryAsString(inputText, BreakIterator.getSentenceInstance(inputLocale), (Summary<String>) statistic.get(StatisticType.SENTENCES));
             summaryAsString(inputText, BreakIterator.getWordInstance(inputLocale), (Summary<String>) statistic.get(StatisticType.WORDS));

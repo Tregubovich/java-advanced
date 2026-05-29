@@ -30,11 +30,11 @@ public class Summary<T> {
         amount++;
         distinct.add(value);
 
-        min = min == null ? value : comparator.min(min, value);
-        max = max == null ? value : comparator.max(max, value);
+        min = min == null ? value : comparator.compare(min, value) <= 0 ? min : value;
+        max = max == null ? value : comparator.compare(max, value) >= 0 ? max : value;
 
-        minLength = lengthComparator == null ? null : (minLength == null ? value : lengthComparator.min(minLength, value));
-        maxLength = lengthComparator == null ? null : (maxLength == null ? value : lengthComparator.max(maxLength, value));
+        minLength = lengthComparator == null ? null : (minLength == null ? value : lengthComparator.compare(minLength, value) <= 0 ? minLength : value);
+        maxLength = lengthComparator == null ? null : (maxLength == null ? value : lengthComparator.compare(maxLength, value) >= 0 ? maxLength : value);
 
         total += metricFunction.applyAsDouble(value);
     }
@@ -67,33 +67,3 @@ public class Summary<T> {
         return total / amount;
     }
 }
-//
-///mnt/repo/java-solutions/info/kgeorgiy/ja/tregubovich/i18n/Summary.java:33: error: cannot find symbol
-//        min = min == null ? value : comparator.min(min, value);
-//                                              ^
-//symbol:   method min(T,T)
-//location: variable comparator of type Comparator<T>
-//where T is a type-variable:
-//T extends Object declared in class Summary
-///mnt/repo/java-solutions/info/kgeorgiy/ja/tregubovich/i18n/Summary.java:34: error: cannot find symbol
-//        max = max == null ? value : comparator.max(max, value);
-//                                              ^
-//symbol:   method max(T,T)
-//location: variable comparator of type Comparator<T>
-//where T is a type-variable:
-//T extends Object declared in class Summary
-///mnt/repo/java-solutions/info/kgeorgiy/ja/tregubovich/i18n/Summary.java:36: error: cannot find symbol
-//        minLength = lengthComparator == null ? null : (minLength == null ? value : lengthComparator.min(minLength, value));
-//                                                                                                   ^
-//symbol:   method min(T,T)
-//location: variable lengthComparator of type Comparator<T>
-//where T is a type-variable:
-//T extends Object declared in class Summary
-///mnt/repo/java-solutions/info/kgeorgiy/ja/tregubovich/i18n/Summary.java:37: error: cannot find symbol
-//        maxLength = lengthComparator == null ? null : (maxLength == null ? value : lengthComparator.max(maxLength, value));
-//                                                                                                   ^
-//symbol:   method max(T,T)
-//location: variable lengthComparator of type Comparator<T>
-//where T is a type-variable:
-//T extends Object declared in class Summary
-//4 errors
